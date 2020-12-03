@@ -14,7 +14,7 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 class webController():
 	'''
-	1. Get Web info from DB
+	1. Get Web connection info from DB
 	2. Initiate webdriver
 	3. Connect Webpage
 	'''
