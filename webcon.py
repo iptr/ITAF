@@ -12,7 +12,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 
-class webController():
+class WEBCtrl():
 	'''
 	1. Get Web connection info from DB
 	2. Initiate webdriver

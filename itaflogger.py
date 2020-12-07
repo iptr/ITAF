@@ -2,23 +2,24 @@ import os
 import logging
 import logging.config
 import logging.handlers
-import socket
 import json
 
 
 class Logger:
-	hostname = socket.gethostname()
-	conf = None
-
+	"""
+	ITAF Logger
+	make Logger instance -> run getlogger method
+	"""
+	
 	def __init__(self) :
 		f = open("conf/logger.conf",'r')
-		self.conf = json.load(f)
+		conf = json.load(f)
 		f.close()
-		logdir = os.path.dirname(self.conf['handlers']['filelog']['filename'])
+		logdir = os.path.dirname(conf['handlers']['filelog']['filename'])
 		if not os.path.isdir(logdir):
 			os.mkdir(logdir)
-		logging.config.dictConfig(self.conf)
-		intlogger = logging.getLogger("Logger Class")
+		logging.config.dictConfig(conf)
+		intlogger = logging.getLogger("ITAF_Logger")
 		intlogger.debug("Logger instance Created")
 
 

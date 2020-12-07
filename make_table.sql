@@ -7,22 +7,23 @@ DROP TABLE IF EXISTS `wd_opts`;
 CREATE TABLE `wd_opts` (`opt` varchar(64));
 DROP TABLE IF EXISTS `caps_opts`;
 CREATE TABLE `caps_opts` (`opt` varchar(64));
-DROP TABLE IF EXISTS `tsrv_inf`;
-CREATE TABLE `tsrv_inf` (
-	`sname` varchar(32),
+DROP TABLE IF EXISTS `server_info`;
+CREATE TABLE `server_info` (
+	`name` varchar(32) NOT NULL PRIMARY KEY,
+	`ostype` varchar(32),
 	`ip` varchar(15),
 	`port` int,
 	`userid` varchar(32),
 	`passwd` varchar(32)
 	);
-DROP TABLE IF EXISTS `encdir`; 
+DROP TABLE IF EXISTS `encdir`;
 CREATE TABLE `encdir` (
 	`ip` varchar(15),
 	`path` varchar(4096),
 	`enctype` int
 );
-DROP TABLE IF EXISTS `mgr_inf`;
-CREATE TABLE `mgr_inf` (
+DROP TABLE IF EXISTS `manager_info`;
+CREATE TABLE `manager_info` (
 	`name` varchar(32),
 	`value` varchar(128)
 );
@@ -75,16 +76,21 @@ CREATE TABLE `vm_inf` (
 	`pw` varchar(32)
 );
 
-INSERT INTO `mgr_inf` VALUES("vip", "192.168.106.113");
-INSERT INTO `mgr_inf` VALUES("rip1", "192.168.106.114");
-INSERT INTO `mgr_inf` VALUES("rip2", "192.168.106.115");
-INSERT INTO `mgr_inf` VALUES("webport", "3443");
-INSERT INTO `mgr_inf` VALUES("sshport", "22");
-INSERT INTO `mgr_inf` VALUES("sshid", "root");
-INSERT INTO `mgr_inf` VALUES("sshpw", "dbsafer00");
-INSERT INTO `mgr_inf` VALUES("dcmgrid","admin");
-INSERT INTO `mgr_inf` VALUES("dcmgrpw","admin007");
-INSERT INTO `mgr_inf` VALUES("kmsid","admin");
-INSERT INTO `mgr_inf` VALUES("kmspw","admin007");
-INSERT INTO `mgr_inf` VALUES("mysqlid","root");
-INSERT INTO `mgr_inf` VALUES("mysqlpw","dbsafer00");
+INSERT INTO `manager_info` VALUES("vip", "192.168.106.113");
+INSERT INTO `manager_info` VALUES("rip1", "192.168.106.114");
+INSERT INTO `manager_info` VALUES("rip2", "192.168.106.115");
+INSERT INTO `manager_info` VALUES("webport", "3443");
+INSERT INTO `manager_info` VALUES("sshport", "22");
+INSERT INTO `manager_info` VALUES("sshid", "root");
+INSERT INTO `manager_info` VALUES("sshpw", "dbsafer00");
+INSERT INTO `manager_info` VALUES("dcmgrid","admin");
+INSERT INTO `manager_info` VALUES("dcmgrpw","admin007");
+INSERT INTO `manager_info` VALUES("kmsid","admin");
+INSERT INTO `manager_info` VALUES("kmspw","admin007");
+INSERT INTO `manager_info` VALUES("mysqlid","root");
+INSERT INTO `manager_info` VALUES("mysqlpw","dbsafer00");
+
+INSERT INTO `server_info` VALUES("CentOS7.7", "Linux", "192.168.4.190", "22", "root", "dbsafer00");
+INSERT INTO `server_info` VALUES("CentOS6.9", "Linux", "192.168.105.160", "22", "root", "dbsafer00");
+INSERT INTO `server_info` VALUES("Windows2016", "Windows", "192.168.106.124", "3389", "administrator", "PNPsecure00))");
+
