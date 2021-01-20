@@ -1,7 +1,7 @@
-# Mysql setting for ITAF v.0.0.1
+# Mysql setting for TAIF v.0.0.1
 
-CREATE DATABASE IF NOT EXISTS itaf;
-use itaf;
+CREATE DATABASE IF NOT EXISTS taif;
+use taif;
 
 DROP TABLE IF EXISTS `wd_opts`;
 CREATE TABLE `wd_opts` (`opt` varchar(64));

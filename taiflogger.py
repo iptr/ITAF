@@ -7,7 +7,7 @@ import json
 
 class Logger:
 	"""
-	ITAF Logger
+	TAIF Logger
 	make Logger instance -> run getlogger method
 	"""
 	
@@ -19,7 +19,7 @@ class Logger:
 		if not os.path.isdir(logdir):
 			os.mkdir(logdir)
 		logging.config.dictConfig(conf)
-		intlogger = logging.getLogger("ITAF_Logger")
+		intlogger = logging.getLogger("TAIF_Logger")
 		intlogger.debug("Logger instance Created")
 
 

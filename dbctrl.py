@@ -1,7 +1,7 @@
 import pymysql as mysql
 import json
 import inspect
-from itaflogger import *
+from taiflogger import *
 
 CONF_PATH = 'conf/dbinfo.conf'
 
