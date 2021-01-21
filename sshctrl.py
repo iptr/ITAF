@@ -4,8 +4,8 @@ import multiprocessing as mp
 import time
 import re
 import os
-from itaflogger import *
-from dbcon import *
+from taiflogger import *
+from dbctrl import *
 
 
 class SSHCtrl:
@@ -24,9 +24,9 @@ class SSHCtrl:
 		self.__lgr = Logger().getlogger("SSHCtrl")
 		dbc = DBCtrl()
 		dbc.connect()
-		columns = dbc.getcolumns('itaf', 'server_info')
+		columns = dbc.getcolumns('taif', 'server_info')
 		columns.remove('ostype')
-		coninfo = dbc.select('itaf', 'server_info', "ostype != 'Windows'", \
+		coninfo = dbc.select('taif', 'server_info', "ostype != 'Windows'", \
 			cols=columns)
 		dbc.close()
 		self.cinf = pd.DataFrame()
