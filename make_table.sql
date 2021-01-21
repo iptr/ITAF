@@ -7,10 +7,11 @@ DROP TABLE IF EXISTS `wd_opts`;
 CREATE TABLE `wd_opts` (`opt` varchar(64));
 DROP TABLE IF EXISTS `caps_opts`;
 CREATE TABLE `caps_opts` (`opt` varchar(64));
-DROP TABLE IF EXISTS `server_info`;
-CREATE TABLE `server_info` (
+DROP TABLE IF EXISTS `server_list`;
+CREATE TABLE `server_list` (
 	`name` varchar(32) NOT NULL PRIMARY KEY,
 	`ostype` varchar(32),
+	`svc_type` int,
 	`ip` varchar(15),
 	`port` int,
 	`userid` varchar(32),
@@ -90,7 +91,7 @@ INSERT INTO `manager_info` VALUES("kmspw","admin007");
 INSERT INTO `manager_info` VALUES("mysqlid","root");
 INSERT INTO `manager_info` VALUES("mysqlpw","dbsafer00");
 
-INSERT INTO `server_info` VALUES("CentOS7.7", "Linux", "192.168.4.190", "22", "root", "dbsafer00");
-INSERT INTO `server_info` VALUES("CentOS6.9", "Linux", "192.168.105.160", "22", "root", "dbsafer00");
-INSERT INTO `server_info` VALUES("Windows2016", "Windows", "192.168.106.124", "3389", "administrator", "PNPsecure00))");
+INSERT INTO `server_list` VALUES("CentOS7.7", "Linux", "192.168.4.190", "22", "root", "dbsafer00");
+INSERT INTO `server_list` VALUES("CentOS6.9", "Linux", "192.168.105.160", "22", "root", "dbsafer00");
+INSERT INTO `server_list` VALUES("Windows2016", "Windows", "192.168.106.124", "3389", "administrator", "PNPsecure00))");
 
