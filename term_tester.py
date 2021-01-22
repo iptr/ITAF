@@ -10,5 +10,4 @@ if __name__ == '__main__':
 	tel.read_until("Password: ")
 	tel.write("PNPsecure00))\n")
 	tel.write("ls -al\n")
-	tel.
 	print(tel)

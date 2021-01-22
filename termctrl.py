@@ -22,6 +22,7 @@ class TermCtrl:
             name, svc_type(telnet, ftp, ssh), ip, port, userid, password
     lgr (Logger) : 로깅을 위한 인스턴스
     """
+    
     cinf = None
     lgr = None
 
@@ -61,7 +62,7 @@ class TermCtrl:
             else:
                 pass
         else:
-            self.cinf = temp['SSH_SERVER_LIST']
+            self.cinf = conf['SSH_SERVER_LIST']
 
     def connect(self, proto, host, port, user, passwd):
         proto = proto.lower()
@@ -99,8 +100,10 @@ class TermCtrl:
             if ci['client'][rc] != None:
                 continue
             else:
-                ci['client'][rc] = self.connect(str(ci['ip'][rc]), int(/
-                                                                        ci['port'][rc]), str(ci['userid'][rc]), str(ci['passwd'][rc]))
+                ci['client'][rc] = self.connect(str(ci['ip'][rc]), 
+                                                int(ci['port'][rc]), 
+                                                str(ci['userid'][rc]), 
+                                                str(ci['passwd'][rc]))
                 print(ci['client'][rc])
 
     def showclients(self):
@@ -244,7 +247,7 @@ class TermCtrl:
             try:
                 dlist = os.listdir(dname)
             except:
-                lgr.error("%s directory does Not exist")
+                self.lgr.error("%s directory does Not exist")
                 return flist
 
             for fn in dlist:
@@ -272,7 +275,7 @@ class TermCtrl:
 
         # Check source path exists
         if srcfiles == []:
-            lgr.error('param srcpath Not exists')
+            self.lgr.error('param srcpath Not exists')
             return -1
 
         # Check destination path on target server exist
