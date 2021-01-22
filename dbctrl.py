@@ -30,7 +30,7 @@ class DBCtrl():
         except Exception as e:
             self.lgr.error(e)
             raise e
-        self.cinf = temp['DBINFO']
+        self.cinf = temp['TAIFDB']
 
 
     def connect(self, host=None, port=None, user=None, passwd=None, db=None,\
