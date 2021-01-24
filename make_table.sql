@@ -11,7 +11,7 @@ DROP TABLE IF EXISTS `server_list`;
 CREATE TABLE `server_list` (
 	`name` varchar(32) NOT NULL PRIMARY KEY,
 	`ostype` varchar(32),
-	`svc_type` int,
+	`svc_type` varchar(32),
 	`ip` varchar(15),
 	`port` int,
 	`userid` varchar(32),

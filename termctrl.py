@@ -1,13 +1,16 @@
+import os
+import time
+import re
+import csv
+import telnetlib as tl
+import ftplib as fl
 import paramiko as pm
 import pandas as pd
 import multiprocessing as mp
-import time
-import re
-import os
-import telnetlib as tl
-import ftplib as fl
+
 from taiflogger import *
 from dbctrl import *
+from commonlib import *
 
 CONF_PATH = 'conf/taif.conf'
 
@@ -31,6 +34,11 @@ class TermCtrl:
         Configuration import priority : DB -> File
         '''
         self.lgr = Logger().getlogger("SSHCtrl")
+        self.configure()
+
+    # GetConf함수로 바꾸고 어디에서 어떤 내용의 설정들을 
+    # 가져올지 파라매터를 받아서 수행하도록하는게 좋을듯
+    def configure(self):
         try:
             jf = open(CONF_PATH)
             conf = json.load(jf)
@@ -38,32 +46,47 @@ class TermCtrl:
         except Exception as e:
             self.lgr.error(e)
             raise e
-        if conf['CFGLOCATION'].lower() == 'db':
+        columns = conf['TAIFDB']['TSVR_TBL']['COLS']
+        self.cinf = pd.DataFrame()
+        for col in columns:
+            self.cinf[col] = []
+        self.cinf['client'] = []
+
+        if conf['CFGLTYPE'].lower() == 'db':
             dbc = DBCtrl()
             if dbc.connect() != -1:
-                columns = dbc.getcolumns(
-                    conf['DBINFO']['DB'], conf['DBINFO']['SERVER_LIST_TBL'])
-                columns.remove('ostype')
-                coninfo = dbc.select(conf['DBINFO']['DB'],
-                                     conf['DBINFO']['SERVER_LIST_TBL'],
-                                     "ostype != 'Windows'",
+                coninfo = dbc.select(conf['TAIFDB']['DB'],
+                                     conf['TAIFDB']['TSVR_TBL']['NAME'],
                                      cols=columns)
                 dbc.close()
-                self.cinf = pd.DataFrame()
-                for col in columns:
-                    self.cinf[col] = []
                 for i, row in enumerate(coninfo):
                     temp = {}
                     for j, col in enumerate(columns):
                         temp[col] = row[j]
                     self.cinf.loc[i] = temp
-                self.cinf['client'] = None
-                self.cinf = self.cinf.astype({'port': int})
             else:
-                pass
+                self.lgr.error("DB connection error")
+                return -1
+        elif conf['CFGTYPE'].lower() == 'FILE':
+            f = open(conf['SERVER_LIST_PATH'])
+            slist = csv.reader(f)
+            f.close()
+            for row in slist:
+                if len(row) != len(columns) :
+                    continue
+                if row[1].upper() not in ['SSH','TEL','FTP']:
+                    continue
+                if not chk_valip(row[2]):
+                    continue
+                if not chk_intsize(row[3],1,65534):
+                    continue
+                self.cinf.append(pd.Series(row, index=self.cinf.columns)
+                                ,ignore_index=True)        
         else:
-            self.cinf = conf['SSH_SERVER_LIST']
-
+            self.lgr.error("Wrong \"%s\" in %s"%CONF_PATH)
+            return -1
+        self.cinf = self.cinf.astype({'port': int})
+        
     def connect(self, proto, host, port, user, passwd):
         proto = proto.lower()
         if proto == 'telnet':
@@ -87,7 +110,7 @@ class TermCtrl:
             self.lgr.error('Wrong protocol : %s' % proto)
             return -1
 
-    def connectpart(self, cno=None):
+    def connectpart(self, cno = None):
         '''
         cno : [list] Client number ex)[0,2,6], None is All of clients
         '''
@@ -201,6 +224,7 @@ class TermCtrl:
         :param path: 디렉토리 경로
         :param client: ssh client object
         '''
+        
         flist = []
         if client != None:
             cmd = "file `find %s`|grep -v directory" % path

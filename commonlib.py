@@ -3,6 +3,7 @@ Utility library
 - Validation check...
 '''
 import re
+import configparser
 
 def chk_strlen(value, min, max):
     if min <= len(value) <= max:
@@ -17,12 +18,18 @@ def chk_valip(value, strtype):
     else:
         return False 
     
-def chk_intsize(value, min, max):
+def chk_intsize(value, min=0, max=100000):
+    if type(value) != str:
+        return False
     if min <= value <= max:
         return True
     else:
         return False
     
+def getconf(confgroup, location):
     
+    pass
+
+
 if __name__ == '__main__':
     pass

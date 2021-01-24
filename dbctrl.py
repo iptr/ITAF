@@ -63,8 +63,8 @@ class DBCtrl():
         else:
             cif = self.cinf
             try:
-                self.db = mysql.connect(host=cif['host'], port=int(cif['port']), /
-                						user=cif['userid'], passwd=cif['passwd'], /
+                self.db = mysql.connect(host=cif['host'], port=int(cif['port']), 
+                						user=cif['userid'], passwd=cif['passwd'], 
                 						db=cif['dbname'], charset=cif['charset'])
             except Exception as e:
                 self.lgr.error(e)
@@ -189,7 +189,7 @@ class DBCtrl():
 
         lines = []
         if without_header == False:
-            lines.append(getcolumns(dbname, tblname))
+            lines.append(self.getcolumns(dbname, tblname))
 
         try:
             while True:

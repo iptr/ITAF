@@ -1,0 +1,4 @@
+"SERVER NAME","DBTYPE[mysql,oracle,mssql]",'DB,Instance,SID',"IP","PORT",'USERID',"PASSWD"
+"MariaDB","mysql","192.168.4.190","22","root","dbsafer00"
+"Oracle","Oracle","192.168.6.102","23","root","PNPsecure00))"
+"MSSQL","MSSQL","192.168.6.102","21","root","dbsafer00
