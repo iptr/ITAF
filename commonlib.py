@@ -1,9 +1,11 @@
 '''
 Utility library
 - Validation check...
+- Read configuration
 '''
 import re
-import configparser
+import csv
+import configparser as cp
 
 def chk_strlen(value, min, max):
     if min <= len(value) <= max:
@@ -26,9 +28,45 @@ def chk_intsize(value, min=0, max=100000):
     else:
         return False
     
-def getconf(confgroup, location):
+def getfileconf(conf_file, section=None, option=None):
+    config = cp.ConfigParser()
+    config.read(conf_file)
     
+    sections = []
+    
+    if section == None:
+        sections = config.sections()
+    elif type(section) == list:
+        sections = section
+    elif type(section) == str:
+        sections.append(section)
+    else:
+        return -1
+    
+    if option == None:
+        conf = {}
+        for sec in sections:
+            try:
+                conf[sec] = {}
+            except:
+                print(conf, sec)
+            for opt in config.items(sec):
+                conf[sec][opt[0]] = opt[1]
+        return conf
+    else:
+        return config.get(section, option)
+        
+    
+def getdbconf(dbname, table, option=None):
     pass
+
+
+def getsvrlistcsv(fname):
+    f = open(fname)
+    reader = csv.Dictreader(f)
+    temp = list(reader)
+    f.close()
+    return temp
 
 
 if __name__ == '__main__':
