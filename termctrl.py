@@ -12,9 +12,6 @@ from taiflogger import *
 from dbctrl import *
 from commonlib import *
 
-CONF_PATH = 'conf/taif.conf'
-
-
 class TermCtrl:
     """
     Telnet,FTP, SSH프로토콜을 사용하여 대상서버에서 작업하는 클래스
@@ -49,74 +46,28 @@ class TermCtrl:
     def getserverlist(self):
         # 설정을 DB에서 가져오기일 경우
         conf = self.conf
-        columns = list(self.cinf.columns)
         if conf['Common']['cfgtype'].lower() == 'db':
-            dbc = DBCtrl()
-            if dbc.connect() != -1:
-                coninfo = dbc.select(conf['DB']['db'],
-                                     conf['Tables']['server_list_tbl'],
-                                     cols=columns)
-                dbc.close()
-                for i, row in enumerate(coninfo):
-                    temp = {}
-                    for j, col in enumerate(columns):
-                        temp[col] = row[j]
-                    self.cinf.loc[i] = temp
+            result = getsvrlistdb()
+            if result != -1:
+                self.lgr.error('DB Connection failed')
             else:
-                self.lgr.error("DB connection error")
-                return -1
+                for row in result:
+                    self.cinf.loc[len(self.cinf)] = row
             
         # 설정을 File에서 가져오기일 경우
         elif conf['Common']['cfgtype'].lower() == 'file':
-            f = open(conf['File']['server_list_file'])
-            slist = csv.reader(f)
-            for row in slist:
-                row.append(None)
-                if len(row) != len(columns) :
-                    print("len(row), len(columns)",len(row), len(columns))
-                    print(row, columns)
-                    continue
-                if row[1].upper() not in ['SSH','TEL','FTP']:
-                    print(row[1].upper())
-                    continue
-                if not chk_valip(row[2]):
-                    print("chk_valip(row[2])",chk_valip(row[2]))
-                    continue
-                if not chk_intsize(row[3], 1, 65534):
-                    print("chk_intsize(row[3], 1, 65534)", chk_intsize(row[3], 1, 65534))
-                    continue
-                self.cinf.loc[len(self.cinf)] = row
-                print(row)
-            f.close()
+            slist = getsvrlistcsv(conf['File']['server_list_file'])
         #설정이 잘못되었을 경우
         else:
             self.lgr.error("\"%s\" in %s is Wrong Type"%(conf['Common']['cfgtype'],CONF_PATH))
             return -1
         self.cinf = self.cinf.astype({'port': int})
-    
-    def add_server_list(self, name, proto, host, port, userid, passwd,
-                        client=None):
-        """현재 서버 목록에 서버를 추가
-
-        Args:
-            name ([type]): 서버 이름
-            proto ([type]): 서비스 프로토콜(Telnet, SSH, FTP)
-            host ([type]): [description]
-            port ([type]): [description]
-            userid ([type]): [description]
-            passwd ([type]): [description]
-            client ([type], optional): [description]. Defaults to None.
-        """        
-        tmp_list = [name, proto.upper(), host, int(port), userid, passwd, client]
-        self.cinf.loc[len(self.cinf)] = tmp_list
            
-    def connect(self, proto, host, port, user, passwd, sname=None,
-                timeout=5):
-        """ SSH, Telnet, FTP 접속 후 서버리스트(cinf)에 추가하고
-            해당 접속 객체를 리턴함
+    def connect(self, proto, host, port, user, passwd, timeout=5):
+        """ SSH, Telnet, FTP 접속 후 해당 접속 객체를 리턴함
 
         Args:
-            proto (str): Protocol 'SSH','TEL','FTP'
+            proto (str): Protocol 'SSH','TELNET','FTP'
             host (str): host ip
             port (int or str): port
             user (str): user id
@@ -125,23 +76,9 @@ class TermCtrl:
         Returns:
             client(obj) : connected session object
         """
-        # 이름을 입력받지 못할 경우
-        if sname == None:
-            sname = proto + '_' + host + ':' + port
-        
-        # 기존 cinf에 해당 서버 및 포트가 있는 경우 그냥 접속만 해야되는데...
-        cinf = self.cinf
-        exist_index = None
-        for i in range(len(self.cinf)):
-            c1 = cinf['host'][i] == host
-            c2 = cinf['port'][i] == int(port)
-            c3 = cinf['client'][i] == None
-            if c1 and c2 and c3:
-                exist_index = i
-        
         proto = proto.lower()
         client = None
-        if proto in ('telnet','tel'):
+        if proto == 'telnet':
             client = tl.Telnet()
             try:
                 client.open(host, int(port), int(timeout))
@@ -151,7 +88,7 @@ class TermCtrl:
                 client.write(passwd.encode() + b'\n')
             except Exception as e:
                 self.lgr.error(e)
-                client = None
+                return -1
         elif proto == 'ftp':
             client = fl.FTP()
             try:
@@ -159,7 +96,7 @@ class TermCtrl:
                 client.login(user, passwd)
             except Exception as e:
                 self.lgr.error(e)
-                client = None
+                return -1
         elif proto == 'ssh' or proto == 'sftp':
             client = pm.SSHClient()
             client.set_missing_host_key_policy(pm.AutoAddPolicy())
@@ -168,35 +105,14 @@ class TermCtrl:
                                password=passwd, timeout=int(timeout))
             except Exception as e:
                 self.lgr.error(e)
-                client = None
+                return -1
         else:
             self.lgr.error('Wrong protocol : %s' % proto)
             return -1
-        if exist_index == None:
-            self.add_server_list(sname, proto, host, port, user, passwd,
-                                 client)
-        else:
-            self.cinf['client'][exist_index] = client
-            
-    def connect_mp(self, server_list, proc_cnt):
-        """멀티프로세스로 세션 접속
-
-        Args:
-            server_list (list): [[name, svc_type, host, port, userid, passwd],
-                                 [name, svc_type, host, port, userid, passwd]...]
-            proc_cnt ([type]): [description]
-        """
-        procs = []
-        for s in server_list:
-            for pc in range(proc_cnt):   
-                proc = mp.Process(target=self.connect, args=(s[1], s[2], s[3], s[4], s[5],s[0]+'_'+str(pc),))
-                procs.append(proc)
-                proc.start()
-                        
-        for proc in procs:
-            proc.join()        
-
-
+        if q != None:
+            pass
+        return client
+    
     def connectlist(self, cno = None):
         """ 
         cinf 서버 목록의 일부 또는 전체 서버에 접속을 시도하고 
@@ -273,7 +189,6 @@ class TermCtrl:
         Returns:
             dict_ret: 명령어 및 수행된 결과값에 대한 딕셔너리
         """
-        
         #client가 telnet인지 SSH인지 구분 필요
         sh = client.invoke_shell()
         dict_ret = {'cmd': cmdlines, 'recv': []}
@@ -309,7 +224,6 @@ class TermCtrl:
         :param path: 디렉토리 경로
         :param client: ssh client object
         '''
-        
         flist = []
         if client != None:
             cmd = "file `find %s`|grep -v directory" % path
@@ -409,17 +323,16 @@ class TermCtrl:
         # get directory or files
         pass
 
-    def close(self, idx):
-        client = self.cinf['client'][idx]
-        if client != -1 or pd.isna(client) == False:
-            try:
-                client.close()
-            except Exception as e:
-                self.lgr.error(e)
-                return -1
-            self.cinf['client'][idx] == -1
-        else:
-            return 0
+    def close(self):
+        for i in range(len(self.cinf)):
+            c1 = self.cinf['client'][i] != -1
+            c2 = pd.isna(self.cinf['client'][i]) == False
+            if c1 or c2:
+                try:
+                    client.close()
+                except Exception as e:
+                    self.lgr.error(e)
+                client = -1
 
 
 if __name__ == '__main__':

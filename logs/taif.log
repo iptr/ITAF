@@ -269,3 +269,5 @@
 2021-01-27 14:00:11,424 [DEBUG][TermCtrl][getlogger] TermCtrl created 
 2021-01-27 14:10:09,488 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
 2021-01-27 14:10:09,489 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 15:09:24,892 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 15:09:24,900 [DEBUG][TermCtrl][getlogger] TermCtrl created 

@@ -6,6 +6,9 @@ Utility library
 import re
 import csv
 import configparser as cp
+from dbctrl import *
+
+CONF_PATH = 'conf/taif.conf'
 
 def chk_strlen(value, min, max):
     if min <= len(value) <= max:
@@ -66,9 +69,41 @@ def getdbconf(dbname, table, option=None):
 def getsvrlistcsv(fname):
     f = open(fname)
     reader = csv.reader(f)
-    temp = list(reader)
+    org = list(reader)
     f.close()
+    cols=['name','svc_type','host','port','userid','passwd']
+    temp = []
+    for row in org:
+        if len(row) != len(cols) :
+            continue
+        if row[1].upper() not in ['SSH','TELNET','FTP']:
+            continue
+        if not chk_valip(row[2]):
+            continue
+        if not chk_intsize(row[3], 1, 65534):
+            continue
+        temp.append(row) 
     return temp
+
+def getsvrlistdb():
+    conf = getfileconf(CONF_PATH)
+    columns = conf['Tables']['server_list_cols'].split(',')
+    if conf['Common']['cfgtype'].lower() == 'db':
+            dbc = DBCtrl()
+            if dbc.connect() != -1:
+                slist = dbc.select(conf['DB']['db'],
+                                     conf['Tables']['server_list_tbl'],
+                                     cols=columns)
+                dbc.close()
+                result = []
+                for i, row in enumerate(slist):
+                    temp = []
+                    for j, col in enumerate(columns):
+                        temp.append(row[j])
+                    result.append(temp)
+                return result
+            else:
+                return -1
 
 def add_row_to_df(df, rows):
     """append rows to dataframe
