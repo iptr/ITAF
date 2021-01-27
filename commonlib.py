@@ -13,7 +13,7 @@ def chk_strlen(value, min, max):
     else:
         return False
     
-def chk_valip(value, strtype):
+def chk_valip(value):
     patt = re.compile("((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)")
     if patt.fullmatch(value):
         return True
@@ -21,7 +21,9 @@ def chk_valip(value, strtype):
         return False 
     
 def chk_intsize(value, min=0, max=100000):
-    if type(value) != str:
+    try:
+        value = int(value)
+    except Exception as e:
         return False
     if min <= value <= max:
         return True
@@ -30,7 +32,7 @@ def chk_intsize(value, min=0, max=100000):
     
 def getfileconf(conf_file, section=None, option=None):
     config = cp.ConfigParser()
-    config.read(conf_file)
+    config.read(conf_file, encoding='UTF-8')
     
     sections = []
     
@@ -63,10 +65,20 @@ def getdbconf(dbname, table, option=None):
 
 def getsvrlistcsv(fname):
     f = open(fname)
-    reader = csv.Dictreader(f)
+    reader = csv.reader(f)
     temp = list(reader)
     f.close()
     return temp
+
+def add_row_to_df(df, rows):
+    """append rows to dataframe
+
+    Args:
+        df (DataFrame) : Original DataFrame
+        rows (list) : Records to append
+    """
+    
+    
 
 
 if __name__ == '__main__':

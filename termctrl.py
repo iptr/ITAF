@@ -23,43 +23,38 @@ class TermCtrl:
     Attr:
     cinf(DataFrame) : 대상서버 접속정보 및 client 객체
             name, svc_type(telnet, ftp, ssh), ip, port, userid, password
+    conf(dic) : 설정정보
     lgr (Logger) : 로깅을 위한 인스턴스
     """
-    
-    cinf = None
     lgr = None
+    conf = None
+    cinf = None
 
     def __init__(self):
-        '''
-        Configuration import priority : DB -> File
-        '''
         self.lgr = Logger().getlogger("TermCtrl")
         self.configure()
+        #self.getserverlist()
 
-    # GetConf함수로 바꾸고 어디에서 어떤 내용의 설정들을 
-    # 가져올지 파라매터를 받아서 수행하도록하는게 좋을듯
     def configure(self):
         # 기본 설정 불러오기
-        try:
-            jf = open(CONF_PATH)
-            conf = json.load(jf)
-            jf.close()
-        except Exception as e:
-            self.lgr.error(e)
-            raise e
+        self.conf = getfileconf(CONF_PATH)
+        conf = self.conf
         # 데이터 프레임 생성
-        columns = conf['CFGDB']['TSVR_TBL']['COLS']
+        columns = conf['Tables']['server_list_cols'].split(',')
         self.cinf = pd.DataFrame()
         for col in columns:
-            self.cinf[col] = []
+            self.cinf[col.strip()] = []
         self.cinf['client'] = []
-
+        
+    def getserverlist(self):
         # 설정을 DB에서 가져오기일 경우
-        if conf['CFGLTYPE'].lower() == 'db':
+        conf = self.conf
+        columns = list(self.cinf.columns)
+        if conf['Common']['cfgtype'].lower() == 'db':
             dbc = DBCtrl()
             if dbc.connect() != -1:
-                coninfo = dbc.select(conf['CFGDB']['DB'],
-                                     conf['CFGDB']['TSVR_TBL']['NAME'],
+                coninfo = dbc.select(conf['DB']['db'],
+                                     conf['Tables']['server_list_tbl'],
                                      cols=columns)
                 dbc.close()
                 for i, row in enumerate(coninfo):
@@ -70,37 +65,50 @@ class TermCtrl:
             else:
                 self.lgr.error("DB connection error")
                 return -1
+            
         # 설정을 File에서 가져오기일 경우
-        elif conf['CFGTYPE'].lower() == 'FILE':
-            f = open(conf['SERVER_LIST_PATH'])
+        elif conf['Common']['cfgtype'].lower() == 'file':
+            f = open(conf['File']['server_list_file'])
             slist = csv.reader(f)
-            f.close()
             for row in slist:
+                row.append(None)
                 if len(row) != len(columns) :
+                    print("len(row), len(columns)",len(row), len(columns))
+                    print(row, columns)
                     continue
                 if row[1].upper() not in ['SSH','TEL','FTP']:
+                    print(row[1].upper())
                     continue
                 if not chk_valip(row[2]):
+                    print("chk_valip(row[2])",chk_valip(row[2]))
                     continue
-                if not chk_intsize(row[3],1,65534):
+                if not chk_intsize(row[3], 1, 65534):
+                    print("chk_intsize(row[3], 1, 65534)", chk_intsize(row[3], 1, 65534))
                     continue
-                self.cinf.append(pd.Series(row, index=self.cinf.columns)
-                                ,ignore_index=True)
+                self.cinf.loc[len(self.cinf)] = row
+                print(row)
+            f.close()
         #설정이 잘못되었을 경우
         else:
-            self.lgr.error("Wrong \"%s\" in %s"%CONF_PATH)
+            self.lgr.error("\"%s\" in %s is Wrong Type"%(conf['Common']['cfgtype'],CONF_PATH))
             return -1
         self.cinf = self.cinf.astype({'port': int})
     
     def add_server_list(self, name, proto, host, port, userid, passwd,
                         client=None):
-        self.cinf['name'].append(name)
-        self.cinf['svc_type'].append(proto)
-        self.cinf['host'].append(host)
-        self.cinf['port'].append(int(port))
-        self.cinf['userid'].append(userid)
-        self.cinf['passwd'].append(passwd)
-        self.cinf['client'].append(client)
+        """현재 서버 목록에 서버를 추가
+
+        Args:
+            name ([type]): 서버 이름
+            proto ([type]): 서비스 프로토콜(Telnet, SSH, FTP)
+            host ([type]): [description]
+            port ([type]): [description]
+            userid ([type]): [description]
+            passwd ([type]): [description]
+            client ([type], optional): [description]. Defaults to None.
+        """        
+        tmp_list = [name, proto.upper(), host, int(port), userid, passwd, client]
+        self.cinf.loc[len(self.cinf)] = tmp_list
            
     def connect(self, proto, host, port, user, passwd, sname=None,
                 timeout=5):
@@ -108,7 +116,7 @@ class TermCtrl:
             해당 접속 객체를 리턴함
 
         Args:
-            proto (str): Protocol 'SSH','Tel','FTP'
+            proto (str): Protocol 'SSH','TEL','FTP'
             host (str): host ip
             port (int or str): port
             user (str): user id
@@ -122,9 +130,13 @@ class TermCtrl:
             sname = proto + '_' + host + ':' + port
         
         # 기존 cinf에 해당 서버 및 포트가 있는 경우 그냥 접속만 해야되는데...
+        cinf = self.cinf
         exist_index = None
         for i in range(len(self.cinf)):
-            if self.cinf['host'] == host and self.cinf['port'] == port:
+            c1 = cinf['host'][i] == host
+            c2 = cinf['port'][i] == int(port)
+            c3 = cinf['client'][i] == None
+            if c1 and c2 and c3:
                 exist_index = i
         
         proto = proto.lower()
@@ -133,17 +145,17 @@ class TermCtrl:
             client = tl.Telnet()
             try:
                 client.open(host, int(port), int(timeout))
-                client.read_until('Username:')
-                client.write(user + '\n')
-                client.read_until('Password:')
-                client.write(passwd + '\n')
+                client.read_until(b'login:')
+                client.write(user.encode() + b'\n')
+                client.read_until(b'Password:')
+                client.write(passwd.encode() + b'\n')
             except Exception as e:
                 self.lgr.error(e)
                 client = None
         elif proto == 'ftp':
             client = fl.FTP()
             try:
-                client = client.connect(host, int(port), int(timeout))
+                client.connect(host, int(port), int(timeout))
                 client.login(user, passwd)
             except Exception as e:
                 self.lgr.error(e)
@@ -165,6 +177,25 @@ class TermCtrl:
                                  client)
         else:
             self.cinf['client'][exist_index] = client
+            
+    def connect_mp(self, server_list, proc_cnt):
+        """멀티프로세스로 세션 접속
+
+        Args:
+            server_list (list): [[name, svc_type, host, port, userid, passwd],
+                                 [name, svc_type, host, port, userid, passwd]...]
+            proc_cnt ([type]): [description]
+        """
+        procs = []
+        for s in server_list:
+            for pc in range(proc_cnt):   
+                proc = mp.Process(target=self.connect, args=(s[1], s[2], s[3], s[4], s[5],s[0]+'_'+str(pc),))
+                procs.append(proc)
+                proc.start()
+                        
+        for proc in procs:
+            proc.join()        
+
 
     def connectlist(self, cno = None):
         """ 
@@ -181,7 +212,6 @@ class TermCtrl:
         if cno == None:
             cno = range(len(self.cinf.index))
         for rc in cno:
-            print(rc)
             if ci['client'][rc] != None:
                 continue
             else:
@@ -189,14 +219,13 @@ class TermCtrl:
                                                 int(ci['port'][rc]), 
                                                 str(ci['userid'][rc]), 
                                                 str(ci['passwd'][rc]))
-                print(ci['client'][rc])
 
     def showclients(self):
         print(self.cinf)
 
     def runcmd(self, client, cmd):
         '''
-        단일 명령어 실행. 
+        단일 명령어 실행. for only SSH
         :param client : paramko SSH Client object 
         :param cmd [str or list] : Command to run on the client
         :return: dictionary of stdin, stdout, stderr
@@ -231,19 +260,21 @@ class TermCtrl:
                 dict_ret['stderr'].append(stderr.readlines())
         else:
             self.lgr.error('wrong type cmd parameter')
-            return -1
+            return -1    
         return dict_ret
-
+    
     def runonshell(self, client, cmdlines):
         """세션을 유지한 쉘에서 명령어를 수행함
 
         Args:
-            client ([obj]): 접속 클라이언트
-            cmdlines ([list]): 수행할 명령어 리스트
+            client (obj): 접속 클라이언트
+            cmdlines (list): 수행할 명령어 리스트
 
         Returns:
-            [dict]: 명령어 및 수행된 결과값에 대한 딕셔너리
+            dict_ret: 명령어 및 수행된 결과값에 대한 딕셔너리
         """
+        
+        #client가 telnet인지 SSH인지 구분 필요
         sh = client.invoke_shell()
         dict_ret = {'cmd': cmdlines, 'recv': []}
         for cmd in cmdlines:
@@ -270,27 +301,6 @@ class TermCtrl:
                 dict_ret['recv'].append(re.split('\n|\r', buf))
         sh.close()
         return dict_ret
-
-    def isrmtfile(self, client, path):
-        """대상서버에 path가 존재하는지 확인
-        사용하지 말것
-
-        Args:
-            client ([type]): [description]
-            path ([type]): [description]
-
-        Returns:
-            [type]: [description]
-        """
-        cmd = "if test -f %s;then echo \"file\";" % path
-        cmd += "elif test -d %s;then echo \"directory\";fi" % path
-        dict_ret = self.runcmd(client, cmd)
-        if dict_ret['stdout'][0] == 'file':
-            return 1
-        elif dict_ret['stdout'][0] == 'directory':
-            return 2
-        else:
-            return -1
 
     def getfileslist(self, path, client=None):
         '''
@@ -368,6 +378,7 @@ class TermCtrl:
         :srcpath: source path to upload
         :dstpath: target path to upload
         '''
+        # Client객체가 FTP인지 SFTP인지 체크한다
         sftp = pm.SFTPClient.from_transport(client.get_transport())
         srcbase = os.path.basename(srcpath)
         srcfiles = self.getlocalpath(srcpath)
@@ -388,10 +399,11 @@ class TermCtrl:
         sftp.close()
 
     def get(self, client, dstpath):
-        # TODO(jycho) : implement get function
         # Create SFTPClient
         sftp = pm.SFTPClient.from_transport(client.get_transport())
         dstfiles = []
+        # Client가 
+        
         # Check Dstpath
 
         # get directory or files

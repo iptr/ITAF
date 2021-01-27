@@ -1,0 +1,271 @@
+2021-01-26 20:25:23,381 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:25:23,381 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:28:07,796 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:28:07,797 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:29:47,242 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:29:47,243 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:30:32,469 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:30:32,470 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:32:24,791 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:32:24,791 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:33:30,299 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:33:30,300 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:34:39,533 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:34:39,534 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:35:45,838 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:35:45,838 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:37:57,155 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:37:57,156 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:38:52,453 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:38:52,454 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:40:13,306 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:40:13,306 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:43:42,850 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:43:42,850 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:44:40,915 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:44:40,916 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:44:40,957 [ERROR][TermCtrl][connect] 'str' object has no attribute 'login' 
+2021-01-26 20:45:43,134 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:45:43,135 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:45:43,165 [ERROR][TermCtrl][connect] 'str' object has no attribute 'login' 
+2021-01-26 20:49:44,205 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 20:49:44,206 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 20:49:44,242 [ERROR][TermCtrl][connect] 'str' object has no attribute 'login' 
+2021-01-26 21:01:18,087 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:01:18,087 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:01:18,120 [ERROR][TermCtrl][connect] 'str' object has no attribute 'login' 
+2021-01-26 21:01:35,851 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:01:35,852 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:01:35,893 [ERROR][TermCtrl][connect] 'str' object has no attribute 'login' 
+2021-01-26 21:01:54,684 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:01:54,685 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:01:54,727 [DEBUG][paramiko.transport][_log] starting thread (client mode): 0x7fc7be50 
+2021-01-26 21:01:54,729 [DEBUG][paramiko.transport][_log] Local version/idstring: SSH-2.0-paramiko_2.7.2 
+2021-01-26 21:01:54,730 [DEBUG][paramiko.transport][_log] Remote version/idstring: SSH-2.0-OpenSSH_7.4 
+2021-01-26 21:01:54,731 [INFO][paramiko.transport][_log] Connected (version 2.0, client OpenSSH_7.4) 
+2021-01-26 21:01:54,734 [DEBUG][paramiko.transport][_log] kex algos:['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group16-sha512', 'diffie-hellman-group18-sha512', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1'] server key:['ssh-rsa', 'rsa-sha2-512', 'rsa-sha2-256', 'ecdsa-sha2-nistp256', 'ssh-ed25519'] client encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] server encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] client mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] server mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] client compress:['none', 'zlib@openssh.com'] server compress:['none', 'zlib@openssh.com'] client lang:[''] server lang:[''] kex follows?False 
+2021-01-26 21:01:54,735 [DEBUG][paramiko.transport][_log] Kex agreed: curve25519-sha256@libssh.org 
+2021-01-26 21:01:54,736 [DEBUG][paramiko.transport][_log] HostKey agreed: ssh-ed25519 
+2021-01-26 21:01:54,736 [DEBUG][paramiko.transport][_log] Cipher agreed: aes128-ctr 
+2021-01-26 21:01:54,737 [DEBUG][paramiko.transport][_log] MAC agreed: hmac-sha2-256 
+2021-01-26 21:01:54,737 [DEBUG][paramiko.transport][_log] Compression agreed: none 
+2021-01-26 21:01:54,788 [DEBUG][paramiko.transport][_log] kex engine KexCurve25519 specified hash_algo <built-in function openssl_sha256> 
+2021-01-26 21:01:54,791 [DEBUG][paramiko.transport][_log] Switch to new keys ... 
+2021-01-26 21:01:54,792 [DEBUG][paramiko.transport][_log] Adding ssh-ed25519 host key for 192.168.4.190: b'fb05c028c5ef2c34bf0c186afb59d6f5' 
+2021-01-26 21:01:54,836 [DEBUG][paramiko.transport][_log] Trying discovered key b'f4480f97eaa0da7f5874a90c1fc5deef' in C:\Users\Trollking/.ssh/id_rsa 
+2021-01-26 21:01:54,838 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:01:54,880 [INFO][paramiko.transport][_log] Authentication (publickey) failed. 
+2021-01-26 21:01:54,882 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:01:54,919 [INFO][paramiko.transport][_log] Authentication (password) successful! 
+2021-01-26 21:01:54,963 [DEBUG][paramiko.transport][_log] Received global request "hostkeys-00@openssh.com" 
+2021-01-26 21:01:54,963 [DEBUG][paramiko.transport][_log] Rejecting "hostkeys-00@openssh.com" global request from server. 
+2021-01-26 21:04:56,633 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:04:56,634 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:04:56,690 [DEBUG][paramiko.transport][_log] starting thread (client mode): 0x1975ce50 
+2021-01-26 21:04:56,694 [DEBUG][paramiko.transport][_log] Local version/idstring: SSH-2.0-paramiko_2.7.2 
+2021-01-26 21:04:56,695 [DEBUG][paramiko.transport][_log] Remote version/idstring: SSH-2.0-OpenSSH_7.4 
+2021-01-26 21:04:56,696 [INFO][paramiko.transport][_log] Connected (version 2.0, client OpenSSH_7.4) 
+2021-01-26 21:04:56,698 [DEBUG][paramiko.transport][_log] kex algos:['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group16-sha512', 'diffie-hellman-group18-sha512', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1'] server key:['ssh-rsa', 'rsa-sha2-512', 'rsa-sha2-256', 'ecdsa-sha2-nistp256', 'ssh-ed25519'] client encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] server encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] client mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] server mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] client compress:['none', 'zlib@openssh.com'] server compress:['none', 'zlib@openssh.com'] client lang:[''] server lang:[''] kex follows?False 
+2021-01-26 21:04:56,699 [DEBUG][paramiko.transport][_log] Kex agreed: curve25519-sha256@libssh.org 
+2021-01-26 21:04:56,700 [DEBUG][paramiko.transport][_log] HostKey agreed: ssh-ed25519 
+2021-01-26 21:04:56,700 [DEBUG][paramiko.transport][_log] Cipher agreed: aes128-ctr 
+2021-01-26 21:04:56,700 [DEBUG][paramiko.transport][_log] MAC agreed: hmac-sha2-256 
+2021-01-26 21:04:56,700 [DEBUG][paramiko.transport][_log] Compression agreed: none 
+2021-01-26 21:04:56,751 [DEBUG][paramiko.transport][_log] kex engine KexCurve25519 specified hash_algo <built-in function openssl_sha256> 
+2021-01-26 21:04:56,753 [DEBUG][paramiko.transport][_log] Switch to new keys ... 
+2021-01-26 21:04:56,754 [DEBUG][paramiko.transport][_log] Adding ssh-ed25519 host key for 192.168.4.190: b'fb05c028c5ef2c34bf0c186afb59d6f5' 
+2021-01-26 21:04:56,772 [DEBUG][paramiko.transport][_log] Trying discovered key b'f4480f97eaa0da7f5874a90c1fc5deef' in C:\Users\Trollking/.ssh/id_rsa 
+2021-01-26 21:04:56,793 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:04:56,838 [INFO][paramiko.transport][_log] Authentication (publickey) failed. 
+2021-01-26 21:04:56,840 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:04:56,877 [INFO][paramiko.transport][_log] Authentication (password) successful! 
+2021-01-26 21:04:56,919 [DEBUG][paramiko.transport][_log] Received global request "hostkeys-00@openssh.com" 
+2021-01-26 21:04:56,920 [DEBUG][paramiko.transport][_log] Rejecting "hostkeys-00@openssh.com" global request from server. 
+2021-01-26 21:05:19,685 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:05:19,686 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:05:19,739 [DEBUG][paramiko.transport][_log] starting thread (client mode): 0x7c59cdc0 
+2021-01-26 21:05:19,739 [DEBUG][paramiko.transport][_log] Local version/idstring: SSH-2.0-paramiko_2.7.2 
+2021-01-26 21:05:19,740 [DEBUG][paramiko.transport][_log] Remote version/idstring: SSH-2.0-OpenSSH_7.4 
+2021-01-26 21:05:19,741 [INFO][paramiko.transport][_log] Connected (version 2.0, client OpenSSH_7.4) 
+2021-01-26 21:05:19,743 [DEBUG][paramiko.transport][_log] kex algos:['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group16-sha512', 'diffie-hellman-group18-sha512', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1'] server key:['ssh-rsa', 'rsa-sha2-512', 'rsa-sha2-256', 'ecdsa-sha2-nistp256', 'ssh-ed25519'] client encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] server encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] client mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] server mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] client compress:['none', 'zlib@openssh.com'] server compress:['none', 'zlib@openssh.com'] client lang:[''] server lang:[''] kex follows?False 
+2021-01-26 21:05:19,744 [DEBUG][paramiko.transport][_log] Kex agreed: curve25519-sha256@libssh.org 
+2021-01-26 21:05:19,745 [DEBUG][paramiko.transport][_log] HostKey agreed: ssh-ed25519 
+2021-01-26 21:05:19,745 [DEBUG][paramiko.transport][_log] Cipher agreed: aes128-ctr 
+2021-01-26 21:05:19,746 [DEBUG][paramiko.transport][_log] MAC agreed: hmac-sha2-256 
+2021-01-26 21:05:19,746 [DEBUG][paramiko.transport][_log] Compression agreed: none 
+2021-01-26 21:05:19,802 [DEBUG][paramiko.transport][_log] kex engine KexCurve25519 specified hash_algo <built-in function openssl_sha256> 
+2021-01-26 21:05:19,803 [DEBUG][paramiko.transport][_log] Switch to new keys ... 
+2021-01-26 21:05:19,804 [DEBUG][paramiko.transport][_log] Adding ssh-ed25519 host key for 192.168.4.190: b'fb05c028c5ef2c34bf0c186afb59d6f5' 
+2021-01-26 21:05:19,820 [DEBUG][paramiko.transport][_log] Trying discovered key b'f4480f97eaa0da7f5874a90c1fc5deef' in C:\Users\Trollking/.ssh/id_rsa 
+2021-01-26 21:05:19,842 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:05:19,894 [INFO][paramiko.transport][_log] Authentication (publickey) failed. 
+2021-01-26 21:05:19,896 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:05:19,934 [INFO][paramiko.transport][_log] Authentication (password) successful! 
+2021-01-26 21:05:19,990 [DEBUG][paramiko.transport][_log] Received global request "hostkeys-00@openssh.com" 
+2021-01-26 21:05:19,990 [DEBUG][paramiko.transport][_log] Rejecting "hostkeys-00@openssh.com" global request from server. 
+2021-01-26 21:06:24,716 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:06:24,717 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:06:24,767 [DEBUG][paramiko.transport][_log] starting thread (client mode): 0xfe2fba00 
+2021-01-26 21:06:24,769 [DEBUG][paramiko.transport][_log] Local version/idstring: SSH-2.0-paramiko_2.7.2 
+2021-01-26 21:06:24,770 [DEBUG][paramiko.transport][_log] Remote version/idstring: SSH-2.0-OpenSSH_7.4 
+2021-01-26 21:06:24,771 [INFO][paramiko.transport][_log] Connected (version 2.0, client OpenSSH_7.4) 
+2021-01-26 21:06:24,776 [DEBUG][paramiko.transport][_log] kex algos:['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group16-sha512', 'diffie-hellman-group18-sha512', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1'] server key:['ssh-rsa', 'rsa-sha2-512', 'rsa-sha2-256', 'ecdsa-sha2-nistp256', 'ssh-ed25519'] client encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] server encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] client mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] server mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] client compress:['none', 'zlib@openssh.com'] server compress:['none', 'zlib@openssh.com'] client lang:[''] server lang:[''] kex follows?False 
+2021-01-26 21:06:24,777 [DEBUG][paramiko.transport][_log] Kex agreed: curve25519-sha256@libssh.org 
+2021-01-26 21:06:24,778 [DEBUG][paramiko.transport][_log] HostKey agreed: ssh-ed25519 
+2021-01-26 21:06:24,778 [DEBUG][paramiko.transport][_log] Cipher agreed: aes128-ctr 
+2021-01-26 21:06:24,778 [DEBUG][paramiko.transport][_log] MAC agreed: hmac-sha2-256 
+2021-01-26 21:06:24,779 [DEBUG][paramiko.transport][_log] Compression agreed: none 
+2021-01-26 21:06:24,829 [DEBUG][paramiko.transport][_log] kex engine KexCurve25519 specified hash_algo <built-in function openssl_sha256> 
+2021-01-26 21:06:24,830 [DEBUG][paramiko.transport][_log] Switch to new keys ... 
+2021-01-26 21:06:24,831 [DEBUG][paramiko.transport][_log] Adding ssh-ed25519 host key for 192.168.4.190: b'fb05c028c5ef2c34bf0c186afb59d6f5' 
+2021-01-26 21:06:24,848 [DEBUG][paramiko.transport][_log] Trying discovered key b'f4480f97eaa0da7f5874a90c1fc5deef' in C:\Users\Trollking/.ssh/id_rsa 
+2021-01-26 21:06:24,870 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:06:24,915 [INFO][paramiko.transport][_log] Authentication (publickey) failed. 
+2021-01-26 21:06:24,917 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:06:24,955 [INFO][paramiko.transport][_log] Authentication (password) successful! 
+2021-01-26 21:06:25,001 [DEBUG][paramiko.transport][_log] Received global request "hostkeys-00@openssh.com" 
+2021-01-26 21:06:25,002 [DEBUG][paramiko.transport][_log] Rejecting "hostkeys-00@openssh.com" global request from server. 
+2021-01-26 21:17:00,175 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:17:00,176 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:17:00,232 [DEBUG][paramiko.transport][_log] starting thread (client mode): 0x7f84f070 
+2021-01-26 21:17:00,233 [DEBUG][paramiko.transport][_log] Local version/idstring: SSH-2.0-paramiko_2.7.2 
+2021-01-26 21:17:00,234 [DEBUG][paramiko.transport][_log] Remote version/idstring: SSH-2.0-OpenSSH_7.4 
+2021-01-26 21:17:00,234 [INFO][paramiko.transport][_log] Connected (version 2.0, client OpenSSH_7.4) 
+2021-01-26 21:17:00,237 [DEBUG][paramiko.transport][_log] kex algos:['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group16-sha512', 'diffie-hellman-group18-sha512', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1'] server key:['ssh-rsa', 'rsa-sha2-512', 'rsa-sha2-256', 'ecdsa-sha2-nistp256', 'ssh-ed25519'] client encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] server encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] client mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] server mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] client compress:['none', 'zlib@openssh.com'] server compress:['none', 'zlib@openssh.com'] client lang:[''] server lang:[''] kex follows?False 
+2021-01-26 21:17:00,238 [DEBUG][paramiko.transport][_log] Kex agreed: curve25519-sha256@libssh.org 
+2021-01-26 21:17:00,238 [DEBUG][paramiko.transport][_log] HostKey agreed: ssh-ed25519 
+2021-01-26 21:17:00,239 [DEBUG][paramiko.transport][_log] Cipher agreed: aes128-ctr 
+2021-01-26 21:17:00,239 [DEBUG][paramiko.transport][_log] MAC agreed: hmac-sha2-256 
+2021-01-26 21:17:00,239 [DEBUG][paramiko.transport][_log] Compression agreed: none 
+2021-01-26 21:17:00,254 [DEBUG][paramiko.transport][_log] kex engine KexCurve25519 specified hash_algo <built-in function openssl_sha256> 
+2021-01-26 21:17:00,267 [DEBUG][paramiko.transport][_log] Switch to new keys ... 
+2021-01-26 21:17:00,268 [DEBUG][paramiko.transport][_log] Adding ssh-ed25519 host key for 192.168.4.190: b'fb05c028c5ef2c34bf0c186afb59d6f5' 
+2021-01-26 21:17:00,286 [DEBUG][paramiko.transport][_log] Trying discovered key b'f4480f97eaa0da7f5874a90c1fc5deef' in C:\Users\Trollking/.ssh/id_rsa 
+2021-01-26 21:17:00,295 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:17:00,345 [INFO][paramiko.transport][_log] Authentication (publickey) failed. 
+2021-01-26 21:17:00,359 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:17:00,396 [INFO][paramiko.transport][_log] Authentication (password) successful! 
+2021-01-26 21:17:00,451 [DEBUG][paramiko.transport][_log] Received global request "hostkeys-00@openssh.com" 
+2021-01-26 21:17:00,451 [DEBUG][paramiko.transport][_log] Rejecting "hostkeys-00@openssh.com" global request from server. 
+2021-01-26 21:40:00,998 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:40:00,999 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:40:46,918 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:40:46,918 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:41:22,478 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:41:22,479 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:42:40,661 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:42:40,662 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:44:59,125 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:44:59,126 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:45:21,321 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:45:21,322 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:46:51,214 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:46:51,214 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:48:39,371 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:48:39,371 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:49:36,478 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:49:36,479 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:50:43,096 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:50:43,097 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:50:43,154 [DEBUG][paramiko.transport][_log] starting thread (client mode): 0xffa38a90 
+2021-01-26 21:50:43,155 [DEBUG][paramiko.transport][_log] Local version/idstring: SSH-2.0-paramiko_2.7.2 
+2021-01-26 21:50:43,155 [DEBUG][paramiko.transport][_log] Remote version/idstring: SSH-2.0-OpenSSH_7.4 
+2021-01-26 21:50:43,156 [INFO][paramiko.transport][_log] Connected (version 2.0, client OpenSSH_7.4) 
+2021-01-26 21:50:43,159 [DEBUG][paramiko.transport][_log] kex algos:['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group16-sha512', 'diffie-hellman-group18-sha512', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1'] server key:['ssh-rsa', 'rsa-sha2-512', 'rsa-sha2-256', 'ecdsa-sha2-nistp256', 'ssh-ed25519'] client encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] server encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] client mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] server mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] client compress:['none', 'zlib@openssh.com'] server compress:['none', 'zlib@openssh.com'] client lang:[''] server lang:[''] kex follows?False 
+2021-01-26 21:50:43,159 [DEBUG][paramiko.transport][_log] Kex agreed: curve25519-sha256@libssh.org 
+2021-01-26 21:50:43,160 [DEBUG][paramiko.transport][_log] HostKey agreed: ssh-ed25519 
+2021-01-26 21:50:43,161 [DEBUG][paramiko.transport][_log] Cipher agreed: aes128-ctr 
+2021-01-26 21:50:43,161 [DEBUG][paramiko.transport][_log] MAC agreed: hmac-sha2-256 
+2021-01-26 21:50:43,161 [DEBUG][paramiko.transport][_log] Compression agreed: none 
+2021-01-26 21:50:43,176 [DEBUG][paramiko.transport][_log] kex engine KexCurve25519 specified hash_algo <built-in function openssl_sha256> 
+2021-01-26 21:50:43,177 [DEBUG][paramiko.transport][_log] Switch to new keys ... 
+2021-01-26 21:50:43,195 [DEBUG][paramiko.transport][_log] Adding ssh-ed25519 host key for 192.168.4.190: b'fb05c028c5ef2c34bf0c186afb59d6f5' 
+2021-01-26 21:50:43,213 [DEBUG][paramiko.transport][_log] Trying discovered key b'f4480f97eaa0da7f5874a90c1fc5deef' in C:\Users\Trollking/.ssh/id_rsa 
+2021-01-26 21:50:43,216 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:50:43,260 [INFO][paramiko.transport][_log] Authentication (publickey) failed. 
+2021-01-26 21:50:43,262 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:50:43,300 [INFO][paramiko.transport][_log] Authentication (password) successful! 
+2021-01-26 21:50:43,343 [DEBUG][paramiko.transport][_log] Received global request "hostkeys-00@openssh.com" 
+2021-01-26 21:50:43,344 [DEBUG][paramiko.transport][_log] Rejecting "hostkeys-00@openssh.com" global request from server. 
+2021-01-26 21:58:27,199 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 21:58:27,200 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 21:58:27,268 [DEBUG][paramiko.transport][_log] starting thread (client mode): 0x7cfae340 
+2021-01-26 21:58:27,268 [DEBUG][paramiko.transport][_log] Local version/idstring: SSH-2.0-paramiko_2.7.2 
+2021-01-26 21:58:27,268 [DEBUG][paramiko.transport][_log] Remote version/idstring: SSH-2.0-OpenSSH_7.4 
+2021-01-26 21:58:27,269 [INFO][paramiko.transport][_log] Connected (version 2.0, client OpenSSH_7.4) 
+2021-01-26 21:58:27,272 [DEBUG][paramiko.transport][_log] kex algos:['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group16-sha512', 'diffie-hellman-group18-sha512', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1'] server key:['ssh-rsa', 'rsa-sha2-512', 'rsa-sha2-256', 'ecdsa-sha2-nistp256', 'ssh-ed25519'] client encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] server encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] client mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] server mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] client compress:['none', 'zlib@openssh.com'] server compress:['none', 'zlib@openssh.com'] client lang:[''] server lang:[''] kex follows?False 
+2021-01-26 21:58:27,272 [DEBUG][paramiko.transport][_log] Kex agreed: curve25519-sha256@libssh.org 
+2021-01-26 21:58:27,273 [DEBUG][paramiko.transport][_log] HostKey agreed: ssh-ed25519 
+2021-01-26 21:58:27,273 [DEBUG][paramiko.transport][_log] Cipher agreed: aes128-ctr 
+2021-01-26 21:58:27,273 [DEBUG][paramiko.transport][_log] MAC agreed: hmac-sha2-256 
+2021-01-26 21:58:27,274 [DEBUG][paramiko.transport][_log] Compression agreed: none 
+2021-01-26 21:58:27,325 [DEBUG][paramiko.transport][_log] kex engine KexCurve25519 specified hash_algo <built-in function openssl_sha256> 
+2021-01-26 21:58:27,335 [DEBUG][paramiko.transport][_log] Switch to new keys ... 
+2021-01-26 21:58:27,337 [DEBUG][paramiko.transport][_log] Adding ssh-ed25519 host key for 192.168.4.190: b'fb05c028c5ef2c34bf0c186afb59d6f5' 
+2021-01-26 21:58:27,355 [DEBUG][paramiko.transport][_log] Trying discovered key b'f4480f97eaa0da7f5874a90c1fc5deef' in C:\Users\Trollking/.ssh/id_rsa 
+2021-01-26 21:58:27,366 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:58:27,420 [INFO][paramiko.transport][_log] Authentication (publickey) failed. 
+2021-01-26 21:58:27,425 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 21:58:27,462 [INFO][paramiko.transport][_log] Authentication (password) successful! 
+2021-01-26 21:58:27,520 [DEBUG][paramiko.transport][_log] Received global request "hostkeys-00@openssh.com" 
+2021-01-26 21:58:27,542 [DEBUG][paramiko.transport][_log] Rejecting "hostkeys-00@openssh.com" global request from server. 
+2021-01-26 22:00:33,362 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-26 22:00:33,363 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-26 22:00:33,426 [DEBUG][paramiko.transport][_log] starting thread (client mode): 0xf6d18a90 
+2021-01-26 22:00:33,427 [DEBUG][paramiko.transport][_log] Local version/idstring: SSH-2.0-paramiko_2.7.2 
+2021-01-26 22:00:33,427 [DEBUG][paramiko.transport][_log] Remote version/idstring: SSH-2.0-OpenSSH_7.4 
+2021-01-26 22:00:33,428 [INFO][paramiko.transport][_log] Connected (version 2.0, client OpenSSH_7.4) 
+2021-01-26 22:00:33,431 [DEBUG][paramiko.transport][_log] kex algos:['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group16-sha512', 'diffie-hellman-group18-sha512', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group14-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1'] server key:['ssh-rsa', 'rsa-sha2-512', 'rsa-sha2-256', 'ecdsa-sha2-nistp256', 'ssh-ed25519'] client encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] server encrypt:['aes128-ctr', 'aes192-ctr', 'aes256-ctr'] client mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] server mac:['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'] client compress:['none', 'zlib@openssh.com'] server compress:['none', 'zlib@openssh.com'] client lang:[''] server lang:[''] kex follows?False 
+2021-01-26 22:00:33,432 [DEBUG][paramiko.transport][_log] Kex agreed: curve25519-sha256@libssh.org 
+2021-01-26 22:00:33,432 [DEBUG][paramiko.transport][_log] HostKey agreed: ssh-ed25519 
+2021-01-26 22:00:33,433 [DEBUG][paramiko.transport][_log] Cipher agreed: aes128-ctr 
+2021-01-26 22:00:33,433 [DEBUG][paramiko.transport][_log] MAC agreed: hmac-sha2-256 
+2021-01-26 22:00:33,433 [DEBUG][paramiko.transport][_log] Compression agreed: none 
+2021-01-26 22:00:33,448 [DEBUG][paramiko.transport][_log] kex engine KexCurve25519 specified hash_algo <built-in function openssl_sha256> 
+2021-01-26 22:00:33,450 [DEBUG][paramiko.transport][_log] Switch to new keys ... 
+2021-01-26 22:00:33,463 [DEBUG][paramiko.transport][_log] Adding ssh-ed25519 host key for 192.168.4.190: b'fb05c028c5ef2c34bf0c186afb59d6f5' 
+2021-01-26 22:00:33,480 [DEBUG][paramiko.transport][_log] Trying discovered key b'f4480f97eaa0da7f5874a90c1fc5deef' in C:\Users\Trollking/.ssh/id_rsa 
+2021-01-26 22:00:33,488 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 22:00:33,535 [INFO][paramiko.transport][_log] Authentication (publickey) failed. 
+2021-01-26 22:00:33,536 [DEBUG][paramiko.transport][_log] userauth is OK 
+2021-01-26 22:00:33,574 [INFO][paramiko.transport][_log] Authentication (password) successful! 
+2021-01-26 22:00:33,615 [DEBUG][paramiko.transport][_log] Received global request "hostkeys-00@openssh.com" 
+2021-01-26 22:00:33,616 [DEBUG][paramiko.transport][_log] Rejecting "hostkeys-00@openssh.com" global request from server. 
+2021-01-27 11:41:42,993 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 11:41:43,000 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 11:43:59,626 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 11:43:59,627 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 11:48:55,427 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 11:48:55,436 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 11:51:22,321 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 11:51:22,330 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 11:52:15,784 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 11:52:15,791 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 11:53:27,977 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 11:53:27,987 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 11:54:39,932 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 11:54:39,933 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 11:55:43,980 [ERROR][TermCtrl][connect] argument should be integer or bytes-like object, not 'str' 
+2021-01-27 11:57:32,163 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 11:57:32,164 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 11:58:34,240 [ERROR][TermCtrl][connect] 'in <string>' requires string as left operand, not bytes 
+2021-01-27 12:03:17,159 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 12:03:17,160 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 12:03:24,070 [ERROR][TermCtrl][connect] 'in <string>' requires string as left operand, not bytes 
+2021-01-27 12:05:38,554 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 12:05:38,554 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 12:06:51,844 [ERROR][TermCtrl][connect] 'str' object has no attribute 'login' 
+2021-01-27 12:08:34,810 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 12:08:34,811 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 13:55:26,324 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 13:55:26,328 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 13:56:14,255 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 13:56:14,256 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 13:57:11,840 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 13:57:11,844 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 13:59:10,988 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 13:59:10,992 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 14:00:11,424 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 14:00:11,424 [DEBUG][TermCtrl][getlogger] TermCtrl created 
+2021-01-27 14:10:09,488 [DEBUG][TAIF_Logger][__init__] Logger instance Created 
+2021-01-27 14:10:09,489 [DEBUG][TermCtrl][getlogger] TermCtrl created 

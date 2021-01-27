@@ -1,4 +1,4 @@
-SNAME,SVC_TYPE,HOST,PORT,USERID,PASSWD
+#name,svc_type,host,port,userid,passwd
 CentOS7_TEST1,SSH,192.168.4.190,22,root,dbsafer00
 CentOS7_TEST2,TEL,192.168.6.102,23,root,PNPsecure00))
 CentOS7_TEST3,FTP,192.168.6.102,21,root,dbsafer00

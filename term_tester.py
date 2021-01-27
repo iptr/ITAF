@@ -1,6 +1,4 @@
 #!/usr/bin/python
-
-import sys
 from termctrl import *
 from commonlib import *
 
@@ -73,15 +71,18 @@ if __name__ == '__main__':
     elif test_type in ('ftpup','ftpdown'):
         svc_type = 'ftp'
     else:
-        sys.exit(-1)
+        print('Config Error')
+        exit(-1)
     
     # 서버 리스트 가져와서 서비스에 맞는 서비스만 저장하고 세션 접속
     term = TermCtrl()
     for line in slist:
-        if line['SVC_TYPE'].lower() == svc_type:
-            term.connect(line['SVC_TYPE'], line['HOST'], line['PORT'],
-                         line['USERID'], line['PASSWD'], line['SNAME'])
+        if line[1].lower() == svc_type:
+            term.connect(line[1], line[2], line[3],
+                         line[4], line[5], line[0])
 
+    print(term.cinf)
+    
     # 서비스에 맞는 테스트 실행
     test_func = {
         'telnet':telnet_test,
