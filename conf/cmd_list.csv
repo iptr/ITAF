@@ -1,0 +1,5 @@
+#Command, command type(FixedEND, Endless), Expected result pattern(명령어 결과값에 반드시 나와야하는 단어)
+#whoami, FixedEND, root
+#top, Endless, 
+ls -al, root
+top, Endless,

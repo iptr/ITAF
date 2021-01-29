@@ -76,6 +76,8 @@ def getsvrlistcsv(fname):
     for row in org:
         if len(row) != len(cols) :
             continue
+        if 4 > row[0].find('#') > -1:
+            continue
         if row[1].upper() not in ['SSH','TELNET','FTP']:
             continue
         if not chk_valip(row[2]):

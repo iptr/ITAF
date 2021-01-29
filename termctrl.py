@@ -1,7 +1,6 @@
 import os
 import time
 import re
-import csv
 import telnetlib as tl
 import ftplib as fl
 import paramiko as pm
@@ -30,7 +29,6 @@ class TermCtrl:
     def __init__(self):
         self.lgr = Logger().getlogger("TermCtrl")
         self.configure()
-        #self.getserverlist()
 
     def configure(self):
         # 기본 설정 불러오기
@@ -52,17 +50,75 @@ class TermCtrl:
                 self.lgr.error('DB Connection failed')
             else:
                 for row in result:
+                    row.append('')
                     self.cinf.loc[len(self.cinf)] = row
             
         # 설정을 File에서 가져오기일 경우
         elif conf['Common']['cfgtype'].lower() == 'file':
             slist = getsvrlistcsv(conf['File']['server_list_file'])
+            for row in slist:
+                row.append('')
+                self.cinf.loc[len(self.cinf)] = row
         #설정이 잘못되었을 경우
         else:
             self.lgr.error("\"%s\" in %s is Wrong Type"%(conf['Common']['cfgtype'],CONF_PATH))
             return -1
         self.cinf = self.cinf.astype({'port': int})
-           
+
+    def waitrecv(self, client, waitcount=3, decoding=False):
+        """ Waiting for receiving the result of telnet command 
+
+        Args:
+            client (telnetlib.Telnet): telnet client object
+            waitcount (int) : Seconds of waiting          
+            decoding (bool) : whether make return data decoded or not
+        Returns:
+            received data (bytestring or str)
+        """
+        readcount=0
+        preread=0
+        readwait=0
+        buf=b''
+        # when SSH Client
+        if type(client) == pm.channel.Channel:
+            while True:
+                if client.recv_ready():
+                    buf += client.recv(65535)
+                    readcount += 1
+                else:
+                    if preread < readcount :
+                        preread = readcount
+                        readwait = 0
+                    else:
+                        if readwait > waitcount:
+                            break
+                    readwait += 1
+                    time.sleep(0.1)
+            # when Telnet Client
+        elif type(client) == tl.Telnet:
+            while True:
+                tmp = client.read_eager()
+                if tmp != b'':
+                    buf += tmp
+                    readcount += 1
+                else:
+                    if preread < readcount :
+                        preread = readcount
+                        readwait = 0
+                    else:
+                        if readwait > waitcount:
+                            break
+                    readwait += 1
+                    time.sleep(0.1)
+        else:
+            self.lgr.error('client type error')
+            return -1
+                
+        if decoding:
+            return buf.decode()
+        else:
+            return buf                
+
     def connect(self, proto, host, port, user, passwd, timeout=5):
         """ SSH, Telnet, FTP 접속 후 해당 접속 객체를 리턴함
 
@@ -86,6 +142,7 @@ class TermCtrl:
                 client.write(user.encode() + b'\n')
                 client.read_until(b'Password:')
                 client.write(passwd.encode() + b'\n')
+                self.waitrecv(client)
             except Exception as e:
                 self.lgr.error(e)
                 return -1
@@ -103,14 +160,16 @@ class TermCtrl:
             try:
                 client.connect(host, port=int(port), username=user,
                                password=passwd, timeout=int(timeout))
+                sh = client.invoke_shell()
+                self.waitrecv(sh)
+                sftp = pm.SFTPClient.from_transport(client.get_transport())
             except Exception as e:
                 self.lgr.error(e)
                 return -1
+            return (client, sh, sftp)
         else:
             self.lgr.error('Wrong protocol : %s' % proto)
             return -1
-        if q != None:
-            pass
         return client
     
     def connectlist(self, cno = None):
@@ -126,12 +185,13 @@ class TermCtrl:
         """
         ci = self.cinf
         if cno == None:
-            cno = range(len(self.cinf.index))
+            cno = range(len(self.cinf))
         for rc in cno:
-            if ci['client'][rc] != None:
+            if ci['client'][rc] not in ('', None, -1):
                 continue
             else:
-                ci['client'][rc] = self.connect(str(ci['host'][rc]), 
+                ci['client'][rc] = self.connect(str(ci['svc_type'][rc]),
+                                                str(ci['host'][rc]), 
                                                 int(ci['port'][rc]), 
                                                 str(ci['userid'][rc]), 
                                                 str(ci['passwd'][rc]))
@@ -147,7 +207,11 @@ class TermCtrl:
         :return: dictionary of stdin, stdout, stderr
         '''
         dict_ret = {'cmd': cmd, 'stdout': [], 'stderr': []}
-        if type(client) == pm.client.SSHClient:
+        if type(client) != pm.client.SSHClient:
+            self.lgr.error('Wrong Client This function is\
+                           only for SSH' % client)
+            return -1
+        elif type(client) == pm.client.SSHClient:
             pass
         elif int(client) < len(self.cinf['client']) > 0:
             client = self.cinf['client'][int(client)]
@@ -179,43 +243,34 @@ class TermCtrl:
             return -1    
         return dict_ret
     
-    def runonshell(self, client, cmdlines):
+    def runcmdshell(self, client, cmdlines):
         """세션을 유지한 쉘에서 명령어를 수행함
 
         Args:
-            client (obj): 접속 클라이언트
+            client (obj): 접속 클라이언트 또는 invokeshell 객체
             cmdlines (list): 수행할 명령어 리스트
 
         Returns:
             dict_ret: 명령어 및 수행된 결과값에 대한 딕셔너리
         """
-        #client가 telnet인지 SSH인지 구분 필요
-        sh = client.invoke_shell()
-        dict_ret = {'cmd': cmdlines, 'recv': []}
+        dict_ret = {'cmd': cmdlines, 'recv':[]}
         for cmd in cmdlines:
-            sh.send(cmd)
-            buf = ''
-            cnt = 0
-            while True:
-                if sh.recv_ready():
-                    buf += sh.recv(4096).decode('ascii')
-                else:
-                    if buf == '':
-                        cnt += 1
-                        time.sleep(0.1)
-                        if cnt > 10:
-                            cnt = -1
-                            break
-                        else:
-                            continue
-                    else:
-                        break
-            if cnt == -1:
+            buf = self.waitrecv(client)
+            if type(client) == tl.Telnet:
+                client.write(cmd.encode() + b'\n')
+            elif type(client) == pm.channel.Channel:
+                client.send(cmd + '\n')
+            else:
+                self.lgr.error('Client is not available')
+                return -1
+            buf = self.waitrecv(client)
+            if buf == '':
                 dict_ret['recv'].append('')
             else:
-                dict_ret['recv'].append(re.split('\n|\r', buf))
-        sh.close()
+                #dict_ret['recv'].append(re.split('\n|\r\n', buf))
+                dict_ret['recv'].append(buf)
         return dict_ret
+        
 
     def getfileslist(self, path, client=None):
         '''
@@ -323,16 +378,16 @@ class TermCtrl:
         # get directory or files
         pass
 
-    def close(self):
+    def closeall(self):
         for i in range(len(self.cinf)):
             c1 = self.cinf['client'][i] != -1
             c2 = pd.isna(self.cinf['client'][i]) == False
             if c1 or c2:
                 try:
-                    client.close()
+                    self.cinf['client'][i].close()
                 except Exception as e:
                     self.lgr.error(e)
-                client = -1
+                self.cinf['client'][i] = -1
 
 
 if __name__ == '__main__':
