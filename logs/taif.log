@@ -2286,3 +2286,5 @@
 2021-01-29 12:16:49,489 [DEBUG][paramiko.transport][_log] Secsh channel 1 opened. 
 2021-01-29 12:16:49,491 [DEBUG][paramiko.transport][_log] [chan 1] Sesch channel 1 request ok 
 2021-01-29 12:16:49,522 [INFO][paramiko.transport.sftp][_log] [chan 1] Opened sftp connection (server version 3) 
+2021-01-29 16:42:41,773 [ERROR][TermCtrl][waitrecv] client type error 
+2021-01-29 16:42:41,774 [ERROR][TermCtrl][runcmdshell] Client is not available 

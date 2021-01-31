@@ -60,11 +60,9 @@ def getfileconf(conf_file, section=None, option=None):
         return conf
     else:
         return config.get(section, option)
-        
-    
+            
 def getdbconf(dbname, table, option=None):
     pass
-
 
 def getsvrlistcsv(fname):
     f = open(fname)

@@ -38,9 +38,10 @@ def run_test(conf, server_list):
                
     procs = []
     q = mp.Queue()
+    stime = time.time()
     for i,svr in enumerate(slist):
         for pc in range(int(conf['Common']['session_count'])):
-            proc = mp.Process(target=test_func[test_type], args=(conf, svr, (i,pc), q,))
+            proc = mp.Process(target=test_func[test_type], args=(conf, svr, (i,pc), q, stime))
             procs.append(proc)
             proc.start()
     print('proc cnt',len(procs))
@@ -52,64 +53,105 @@ def run_test(conf, server_list):
         result.append(q.get(block=False, timeout=5))    
     return result
 
-def CallTermCtrl(func):
-    def wrapper(*args, **kwargs):
-        term = TermCtrl()
-        print(*args, **kwargs)
-        ret = func(*args, **kwargs)
-        term.close()
-        del term
-        return ret
-    return wrapper
-
-def test(param):
-    print(param,'in testfunction')
-
 def cmd_test(conf, svr, pc, q = None, stime=None):
+    """[summary]
+
+    Args:
+        conf ([type]): [description]
+        svr ([type]): [description]
+        pc ([type]): [description]
+        q ([type], optional): [description]. Defaults to None.
+        stime ([type], optional): [description]. Defaults to None.
+    """
+    run_count = 0
+    test_time = int(conf['Common']['test_time'])
+    delay_time = int(conf['Common']['delay_time'])
+    test_type = conf['Common']['test_type'].lower()
+    criteria = conf['Common']['criteria'].lower()
+    persist_session = conf['Common']['persist_session'].lower()
+    repeat_count = int(conf['Common']['repeat_count'])
+    ssh_cmd_func = conf['SSHConfig']['ssh_cmd_func'].lower()
+    chk_verification = conf['Common']['chk_verification'].lower()
+    
+    f = open(conf['Input']['cmd_list_file'])
+    reader = csv.reader(f)
+    cmdlist = list(reader)
+    f.close()
+    cmdlines = []
+    
+    for row in cmdlist:
+        if row[0].find('#') == -1:
+            cmdlines.append(row[0])
     term = TermCtrl()
-    #세션 지속 여부
-    if conf['Common']['persist_session'].lower()=='true':
+    #세션 지속하고 명령어만 반복
+    if persist_session == 'true':
         #접속
         client = term.connect(svr[1], svr[2], svr[3], svr[4], svr[5])
         if type(client) == tl.Telnet:
             sh = client
         elif type(client) == pm.client.SSHClient:
+            sh = client[0]
+        elif type(client) == pm.channel.Channel:
             sh = client[1]
         else:
             print('Wrong type of client')
-        #시간단위
-        if conf['Common']['criteria'].lower() == 'time':
-            while True:
-                # 명령어 수행(runcmd or runonshell)
+            
+        while True:
+            # 명령어 수행(runcmd or runonshell)
+            if test_type == 'ssh' and ssh_cmd_func == 'runcmd':
+                ret = term.runcmd(sh, cmdlines)
+            else:
                 ret = term.runcmdshell(sh, cmdlines)
-                # 결과 검증(예상값 데이터가 필요함)
-                
-                # 현재시간 - 시작시간 >= TEST_TIME 이면 종료
+            # 결과 검증
+            if chk_verification == 'true':
                 pass
-        #횟수단위
-        else:
-            for i in range(conf['Common']['test_count']):
-                #명령어 수행
-                #결과 검증 
+            else:
                 pass
-    # 단타 세션
+            #테스트 종료 기준 (시간, 횟수)
+            if criteria == 'time':
+                if (time.time() - stime) >= test_time:
+                    break
+            else:
+                run_count += 1
+                if run_count > repeat_count:
+                    break
+            #딜레이
+            time.sleep(delay_time)
+        #결과 전달
+        q.put(str(pc) + result)
+        sh.close()     
     else:
-        #시간단위
-        if conf['Common']['criteria'].lower() == 'time':
-            while True:
-                #접속
-                #명령어 수행
-                #결과 검증
+        while True:
+            # 접속
+            client = term.connect(svr[1], svr[2], svr[3], svr[4], svr[5])
+            if type(client) == tl.Telnet:
+                sh = client
+            elif type(client) == pm.client.SSHClient:
+                sh = client[1]
+            else:
+                print('Wrong type of client')
+            # 명령어 수행
+            if test_type == 'ssh' and ssh_cmd_func == 'runcmd':
+                ret = term.runcmd(sh, cmdlines)
+            else:
+                ret = term.runcmdshell(sh, cmdlines)
+            # 결과 검증
+            if chk_verification == 'true':
                 pass
-        #횟수단위
-        else:
-            for i in range(conf['Common']['test_count']):
-                #접속
-                #명령어 수행
-                #결과 검증
+            else:
                 pass
-    # 명령어 수행
-    # 결과값 전달
+            #테스트 종료 기준 (시간, 횟수)
+            if criteria == 'time':
+                if (time.time() - stime) >= test_time:
+                    break
+            else:
+                run_count += 1
+                if run_count > repeat_count:
+                    break
+            #딜레이
+            time.sleep(delay_time)
+            sh.close()
+        q.put(str(pc) + result)
     term.close()
 
 def ftp_test(conf, svr, pc, q = None):
