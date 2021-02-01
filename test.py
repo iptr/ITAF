@@ -1,8 +1,9 @@
-from termctrl import *
+from termctrl.sessionhandler import *
     
-term = TermCtrl()
-term.getserverlist()
-term.connectlist()
+sess = SessionHandler()
+sess.getserverlist()
+'''
+#sess.connectlist()
 print(term.cinf)
 
 ssh1 = term.cinf['client'][0]
@@ -19,3 +20,4 @@ print(ret1['recv'])
 print(ret2['recv'])
 print(ret3['recv'])
 print(ret4['recv'])
+'''

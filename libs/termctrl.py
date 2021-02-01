@@ -368,10 +368,9 @@ class TermCtrl:
         sftp.close()
 
     def get(self, client, dstpath):
-        # Create SFTPClient
+        # client가 SSH면 SFTP 채널 오픈
         sftp = pm.SFTPClient.from_transport(client.get_transport())
         dstfiles = []
-        # Client가 
         
         # Check Dstpath
 

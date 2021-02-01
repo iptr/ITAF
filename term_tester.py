@@ -82,6 +82,7 @@ def cmd_test(conf, svr, pc, q = None, stime=None):
     for row in cmdlist:
         if row[0].find('#') == -1:
             cmdlines.append(row[0])
+    # 접속해서 세션을 전달해주는 형태로... 바꿔야 함.            
     term = TermCtrl()
     #세션 지속하고 명령어만 반복
     if persist_session == 'true':
