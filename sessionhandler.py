@@ -1,6 +1,8 @@
-from taiflogger import *
-from dbctrl import *
-from commonlib import *
+import sys
+
+from . import taiflogger
+from . import dbctrl
+from .commonlib import *
 
 class SessionHandler:
     lgr = None
@@ -80,7 +82,7 @@ class SessionHandler:
         for r in range(len(self.server_list['name'])):
             row = ''
             for c, col in enumerate(cols):
-                row += self.server_list[col][r].strip() + '  '
+                row += self.server_list[col.strip()][r].strip() + '  '
             data.append(row)
             
         for c, col in enumerate(cols):
@@ -100,9 +102,5 @@ class SessionHandler:
         for d in data:
             print(d)
         
-        
 if __name__ == '__main__':
-    session = SessionHandler()
-    session.getserverlist()
-    session.showclients()
     pass

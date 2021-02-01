@@ -2,5 +2,9 @@ __all__ = ['sessionhandler',
            'ftp',
            'sftp',
            'telnet',
-           'ssh'
+           'ssh',
+           'taiflogger',
+           'dbctrl',
+           'commonlib',
+           'dcmgrctrl',
            ]

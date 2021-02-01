@@ -1,7 +1,8 @@
-from termctrl.sessionhandler import *
+from libs import sessionhandler
     
-sess = SessionHandler()
+sess = sessionhandler.SessionHandler()
 sess.getserverlist()
+sess.showclients()
 '''
 #sess.connectlist()
 print(term.cinf)

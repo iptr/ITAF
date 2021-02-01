@@ -6,7 +6,7 @@ Utility library
 import re
 import csv
 import configparser as cp
-from dbctrl import *
+from libs.dbctrl import *
 
 CONF_PATH = 'conf/taif.conf'
 
