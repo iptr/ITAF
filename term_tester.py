@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import time
+import multiprocessing as mp
 from termctrl import *
 from commonlib import *
 
@@ -44,6 +45,7 @@ def run_test(conf, server_list):
             proc = mp.Process(target=test_func[test_type], args=(conf, svr, (i,pc), q, stime))
             procs.append(proc)
             proc.start()
+            time.sleep(1)
     print('proc cnt',len(procs))
     for proc in procs:
         proc.join()
@@ -79,30 +81,47 @@ def cmd_test(conf, svr, pc, q = None, stime=None):
     f.close()
     cmdlines = []
     
+    term = TermCtrl()
     for row in cmdlist:
         if row[0].find('#') == -1:
-            cmdlines.append(row[0])
-    # 접속해서 세션을 전달해주는 형태로... 바꿔야 함.            
-    term = TermCtrl()
+            cmdlines.append(row[0])           
+    if test_type in ['telnet', 'ssh'] :
+        runner = CMDRunner()
+    else:
+        print('Wrong Test Type')
+        return -1
+        
     #세션 지속하고 명령어만 반복
+    sh = None
+    result = ''
     if persist_session == 'true':
         #접속
         client = term.connect(svr[1], svr[2], svr[3], svr[4], svr[5])
         if type(client) == tl.Telnet:
             sh = client
-        elif type(client) == pm.client.SSHClient:
-            sh = client[0]
-        elif type(client) == pm.channel.Channel:
-            sh = client[1]
+        elif type(client) == tuple and len(client) == 3:
+            c1 = type(client[0]) == pm.client.SSHClient
+            c2 = type(client[1]) == pm.channel.Channel
+            c3 = ssh_cmd_func == 'runcmdshell'
+            c4 = ssh_cmd_func == 'runcmd'
+            if c1 and c2 and c4:
+                sh = client[0]
+            elif c1 and c2 and c3:
+                sh = client[1]
+            else:
+                print('Wrong Type of client1')
+                exit(-1)
         else:
-            print('Wrong type of client')
-            
+            print('Wrong type of client2', client, type(client))
+            exit(-2)
+        print(type(sh), sh)
+        runner.waitrecv(sh)
         while True:
             # 명령어 수행(runcmd or runonshell)
             if test_type == 'ssh' and ssh_cmd_func == 'runcmd':
-                ret = term.runcmd(sh, cmdlines)
+                ret = runner.runcmd(sh, cmdlines)
             else:
-                ret = term.runcmdshell(sh, cmdlines)
+                ret = runner.runcmd(sh, cmdlines)
             # 결과 검증
             if chk_verification == 'true':
                 pass
@@ -119,6 +138,7 @@ def cmd_test(conf, svr, pc, q = None, stime=None):
             #딜레이
             time.sleep(delay_time)
         #결과 전달
+        time.sleep(3000)
         q.put(str(pc) + result)
         sh.close()     
     else:
@@ -151,9 +171,9 @@ def cmd_test(conf, svr, pc, q = None, stime=None):
                     break
             #딜레이
             time.sleep(delay_time)
-            sh.close()
+            sh.close() 
         q.put(str(pc) + result)
-    term.close()
+    term.closeall()
 
 def ftp_test(conf, svr, pc, q = None):
     term = TermCtrl()

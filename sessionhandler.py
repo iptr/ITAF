@@ -1,8 +1,6 @@
-import sys
-
-from . import taiflogger
-from . import dbctrl
-from .commonlib import *
+from taiflogger import *
+from dbctrl import *
+from commonlib import *
 
 class SessionHandler:
     lgr = None
@@ -79,15 +77,16 @@ class SessionHandler:
         cols = conf['Tables']['server_list_cols'].split(',')
         colsize = []
         data = []
+        print(self.server_list)
         for r in range(len(self.server_list['name'])):
             row = ''
             for c, col in enumerate(cols):
                 row += self.server_list[col.strip()][r].strip() + '  '
             data.append(row)
-            
+        
         for c, col in enumerate(cols):
             strlen = 0
-            for i in range(self.server_list[col]):
+            for i in range(len(self.server_list[col])):
                 data[c].append(self.server_list[col][i])
                 if strlen < self.server_list[col][i]:
                     strlen = self.server_list[col][i]
@@ -96,11 +95,14 @@ class SessionHandler:
         for i, col in enumerate(cols):
             temp = '{0:^%s}'%colsize[i]
             header += temp.format(col.strip()) + '  '
-        header += '\n'
         
-        print(header)
-        for d in data:
-            print(d)
+        #print(header)
+    
+#        for d in data:
+#            print(d)
         
 if __name__ == '__main__':
+    sess = SessionHandler()
+    sess.getserverlist()
+    sess.showclients()
     pass

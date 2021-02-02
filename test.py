@@ -1,8 +1,12 @@
-from libs import sessionhandler
+from termctrl import *
     
-sess = sessionhandler.SessionHandler()
-sess.getserverlist()
-sess.showclients()
+term = TermCtrl()
+term.setserverlist()
+term.connectlist()
+term.showclients()
+client = term.server_list['client'][0][1]
+cmdrun = CMDRunner()
+print(cmdrun.runcmd(client, 'ls -al'))
 '''
 #sess.connectlist()
 print(term.cinf)

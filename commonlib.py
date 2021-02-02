@@ -4,9 +4,10 @@ Utility library
 - Read configuration
 '''
 import re
+import os
 import csv
 import configparser as cp
-from libs.dbctrl import *
+from dbctrl import *
 
 CONF_PATH = 'conf/taif.conf'
 
@@ -36,9 +37,7 @@ def chk_intsize(value, min=0, max=100000):
 def getfileconf(conf_file, section=None, option=None):
     config = cp.ConfigParser()
     config.read(conf_file, encoding='UTF-8')
-    
     sections = []
-    
     if section == None:
         sections = config.sections()
     elif type(section) == list:
@@ -104,16 +103,75 @@ def getsvrlistdb():
                 return result
             else:
                 return -1
+#수정 필요
+def getfileslist(self, path, client=None):
+        '''
+        path에 해당되는 디렉토리내 모든 파일 및 디렉토리 목록을 리턴한다.
+        client를 입력받을 경우 원격지의 path에 대해서 수행한다.
+        :param path: 디렉토리 경로
+        :param client: ssh client object
+        '''
+        flist = []
+        if client != None:
+            cmd = "file `find %s`|grep -v directory" % path
+            ret = self.runcmd(client, cmd)
+            if len(ret['stdout'][0]) > 0:
+                for line in ret['stdout'][0]:
+                    flist.append(line.strip(':')[0])
+        else:
+            for dpath, dnames, fnames in os.walk(path):
+                for fn in fnames:
+                    flist.append(dpath + os.sep + fn)
+        return flist
 
-def add_row_to_df(df, rows):
-    """append rows to dataframe
+# 수정 필요
+def getlocalpath(self, path):
+    '''
+    path가 존재하는지 파일인지 디렉토리인지 확인하고 디렉토리일경우 디렉토리 하위의 모든 파일들을 리턴한다.
+    path의 파일명에 와일드카드(*,?)가 존재할경우 다수의 파일목록을 리턴한다.
+    '''
+    flist = []
+    dname = os.path.dirname(path)
+    bname = os.path.basename(path)
+    # Check whether the path is a directory
+    if os.path.isdir(path):
+        flist = self.getfileslist(path)
+        return flist
 
-    Args:
-        df (DataFrame) : Original DataFrame
-        rows (list) : Records to append
-    """
-    
-    
+    # whether path is a file
+    if os.path.isfile(path):
+        flist.append(path)
+        return flist
+
+    # check the path includes wild cards and get files as the pattern
+    if re.search("\*|\?", bname) != None:
+        if re.fullmatch('\*+', bname):
+            patt = re.compile('\S*')
+        elif re.fullmatch('\?+', bname) != None:
+            patt = re.compile(bname.replace('?', '.'))
+        else:
+            patt = '^' + \
+                bname.replace('.', '\.').replace(
+                    '?', '.').replace('*', '\S*') + '$'
+            patt = re.compile(patt)
+
+        try:
+            dlist = os.listdir(dname)
+        except:
+            self.lgr.error("%s directory does Not exist")
+            return flist
+
+        for fn in dlist:
+            if re.fullmatch(patt, fn) != None:
+                tmppath = dname + os.sep + fn
+                if os.path.isdir(tmppath):
+                    flist += self.getfileslist(tmppath)
+                elif os.path.isfile(tmppath):
+                    flist.append(tmppath)
+                else:
+                    pass
+        return flist
+    return flist
 
 
 if __name__ == '__main__':
