@@ -2,3 +2,4 @@
 #whoami, root
 #top,???
 echo a >> /home/trolltest.txt,
+whoami, root

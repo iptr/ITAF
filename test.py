@@ -1,12 +1,37 @@
+def repeater(values):
+    i = 0
+    while True:
+        yield values[i]
+        i += 1
+        if i >= len(values):
+            i = 0
+
+it = repeater([1,2,3,4,5])
+print(next(it))
+print(next(it))
+print(next(it))
+print(next(it))
+print(next(it))
+print(next(it))
+print(next(it))
+print(next(it))
+print(next(it))
+print(next(it))
+print(next(it))
+'''
 from termctrl import *
     
 term = TermCtrl()
 term.setserverlist()
 term.connectlist()
 term.showclients()
+sftp = term.server_list['client'][0][2]
 client = term.server_list['client'][0][1]
 cmdrun = CMDRunner()
+ftr = FTRunner()
+ftr.putfile(sftp, 'termctrl.py', '/root/termctrl.py')
 print(cmdrun.runcmd(client, 'ls -al'))
+'''
 '''
 #sess.connectlist()
 print(term.cinf)

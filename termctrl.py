@@ -28,7 +28,7 @@ class TermCtrl:
     def __init__(self):
         self.lgr = Logger().getlogger("TermCtrl")
         self.conf = getfileconf(CONF_PATH)
-        self.setserverlist()
+        #self.setserverlist()
         
     def setserverlist(self):
         cols = self.conf['Tables']['server_list_cols'].split(',')
@@ -164,48 +164,41 @@ class CMDRunner():
     def __init__(self):
         self.lgr = Logger().getlogger("CMDRunner")
 
-    def runcmd(self, client, cmdlist):
-        result = {'cmd': cmdlist, 'recv': [], 'stderr': []}
+    def runcmd(self, client, cmd, exresult=''):
+        result = ''
         buf = ''
-        
         if type(client) == pm.client.SSHClient or type(client) == pm.channel.Channel:
             self.waitrecv(client)
-        for cmd in cmdlist:
-            if type(client) == pm.client.SSHClient:
-                try:
-                    stdin, stdout, stderr = client.exec_command(cmd)
-                except Exception as e:
-                    self.lgr.error(e)
-                result['recv'].append(stdout.readlines())
-                result['stderr'].append(stderr.readlines())
-            elif type(client) == pm.channel.Channel:
-                try:
-                    client.send(cmd+'\n')
-                    buf = self.waitrecv(client)
-                except Exception as e:
-                    self.lgr.error(e)
-                if buf == '':
-                    result['recv'].append('')
-                    result['stderr'].append(None)
-                else:
-                    result['recv'].append(buf)
-                    result['stderr'].append(None)
-            elif type(client) == tl.Telnet:
-                try:
-                    client.write(cmd.encode() + b'\n')
-                    buf = self.waitrecv(client)
-                except Exception as e:
-                    self.lgr.error(e)
-                if buf == '':
-                    result['recv'].append('')
-                    result['stderr'].append(None)
-                else:
-                    result['recv'].append(buf)
-                    result['stderr'].append(None)
-            else:
-                self.lgr.error('Wrong type client')
-                return -1
-        return result
+        if type(client) == pm.client.SSHClient:
+            try:
+                stdin, stdout, stderr = client.exec_command(cmd)
+            except Exception as e:
+                self.lgr.error(e)
+            buf = stdout.read() + stderr.read()
+            result
+        elif type(client) == pm.channel.Channel:
+            try:
+                client.send(cmd+'\n')
+                buf = self.waitrecv(client)
+            except Exception as e:
+                self.lgr.error(e)
+        elif type(client) == tl.Telnet:
+            try:
+                client.write(cmd.encode() + b'\n')
+                buf = self.waitrecv(client)
+            except Exception as e:
+                self.lgr.error(e)
+        else:
+            self.lgr.error('Wrong type client')
+            return -1
+        if type(buf) == str:
+            pass
+        else:
+            buf = buf.decode()
+        if buf.find(exresult) > -1:
+            return (True, buf)
+        else:
+            return (False, buf)
             
     def waitrecv(self, client, waitcount=3, decoding=False):
         """ Waiting for receiving the result of telnet command 
@@ -264,21 +257,28 @@ class CMDRunner():
 
 class FTRunner():
     lgr = None
+    localcwd = None
+    
     def __init__(self):
         self.lgr = Logger().getlogger('FTRunner')
+        self.localcwd = os.getcwd()
 
-    def getfile(self, client, dstpath, localpath='.'):
+    def getfile(self, client, dstpath, localpath=localcwd):
+        '''
+        dstpath(str) : 받아올 파일(절대 경로입력 필요)
+        localpath(str) : 가져올 로컬 경로(절대 경로)
+        '''
+        localfile = os.sep + localpath + os.path.basename(dstpath)
         # Client객체가 FTP인지 SFTP인지 체크한다
-        if client == fl.FTP:
-            f = open(localpath,'wb')
+        if type(client) == fl.FTP:
+            f = open(localfile,'wb')
             client.retrbinary(dstpath, f.write, blocksize=8192, rest=None)
             f.close()
-        elif client == pm.SFTPClient:
+        elif type(client) == pm.sftp_client.SFTPClient:
             client.get(dstpath, localpath)
         else:
             self.lgr.error("Wrong type Client")
         
-    
     def putfile(self, client, srcpath, dstpath):
         '''
         ftp 또는 ssh 클라이언트를 통해 원본경로의 내용을 대상경로로 업로드한다.
@@ -286,18 +286,20 @@ class FTRunner():
         :srcpath: source path to upload
         :dstpath: target path to upload
         '''
+        dstfile = os.sep + dstpath + os.path.basename(srcpath)
         # Client객체가 FTP인지 SFTP인지 체크한다
-        if client == fl.FTP:
-            client.storbinary(dstpath, open(srcpath,'rb'), blocksize=8192, callback=None, rest=None)
-        elif client == pm.SFTPClient:
-            client.put(srcpath, dstpath)
+        if type(client) == fl.FTP:
+            try:
+                client.storbinary(dstfile, open(srcpath,'rb'), blocksize=8192, callback=None, rest=None)
+            except Exception as e:
+                print(e)
+        elif type(client) == pm.sftp_client.SFTPClient:
+            try:
+                client.put(srcpath, dstfile)
+            except Exception as e:
+                print(e)
         else:
             self.lgr.error("Wrong type Client")
-        pass
-        # Client객체가 FTP인지 SFTP인지 체크한다
-        sftp = pm.SFTPClient.from_transport(client.get_transport())
-        srcbase = os.path.basename(srcpath)
-        srcfiles = self.getlocalpath(srcpath)
 
         # Check source path exists
         # Check destination path on target server exist

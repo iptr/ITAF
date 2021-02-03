@@ -6,6 +6,7 @@ Utility library
 import re
 import os
 import csv
+import hashlib
 import configparser as cp
 from dbctrl import *
 
@@ -172,6 +173,18 @@ def getlocalpath(self, path):
                     pass
         return flist
     return flist
+
+def repeater(values):
+    i = 0
+    while True:
+        yield values[i]
+        i += 1
+        if i >= len(values):
+            i = 0
+            
+def gethashfromlocal(buf):
+    result = hashlib.sha256(buf)
+    return result.hexdigest()
 
 
 if __name__ == '__main__':
