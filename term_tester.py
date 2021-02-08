@@ -12,6 +12,16 @@ def chk_config(conf):
     # 설정내용이 올바른지 확인
     pass
 
+def dist_ftpcli(client, test_type):
+    if type(client) == int:
+        return -1
+    elif type(client) == tuple and test_type.lower() == 'sftp':
+        return client[2]
+    elif type(client) == fl.FTP and test_type.lower() == 'ftp':
+        return client
+    else:
+        return -1
+
 def dist_client(client, ssh_cmd_func):
     c1 = type(client) == tl.Telnet
     c2 = type(client) == tuple and len(client) == 3
@@ -272,17 +282,12 @@ def ftp_test(conf, svr, files, pc, q = None, stime=None):
     if persist_session == 'true':
         #접속
         temp = term.connect(svr[1], svr[2], svr[3], svr[4], svr[5])
-        if type(temp) == int:
+        client = dist_ftpcli(temp, test_type)
+        if client == -1:
             return -1
-        if type(temp) == tuple and test_type == 'sftp':
-            try:
-                client = temp[2]
-            except Exception as e:
-                print(e)
-                return -1
-            result['sescnt'] += 1
         else:
-            client = temp
+            result['sescnt'] += 1
+
         #업/다운 수행
         while True:
             row = next(filerpt)
@@ -291,7 +296,7 @@ def ftp_test(conf, svr, files, pc, q = None, stime=None):
             download = row[3] + os.sep + row[0] + '-' + jobid
             putret = ftrun.putfile(client, upload, remote)
             getret = ftrun.getfile(client, remote, download)
-            result['cmdcnt'] += 1
+            result['cmdcnt'] += 2 
             #결과 검증1
             c1 = putret not in [0,None] or getret not in [0,None]
             if c1:
@@ -308,7 +313,7 @@ def ftp_test(conf, svr, files, pc, q = None, stime=None):
             else:
                 r2 = False
             if r1 == False or r2 == False:
-                result['failcnt'] += 1
+                result['failcnt'] += 2
             #테스트 종료 기준
             if criteria == 'time':
                 if (time.time() - stime) >= test_time:
@@ -323,16 +328,11 @@ def ftp_test(conf, svr, files, pc, q = None, stime=None):
     else:
         while True:
             temp = term.connect(svr[1], svr[2], svr[3], svr[4], svr[5])
-            if type(temp) == int:
+            client = dist_ftpcli(temp, test_type)
+            if client == -1:
                 return -1
-            if type(temp) == tuple and test_type == 'sftp':
-                try:
-                    client = temp[2]
-                except Exception as e:
-                    print(e)
-                result['sescnt'] += 1
             else:
-                client = temp
+                result['sescnt'] += 1
             row = next(filerpt)
             upload = row[1] + os.sep + row[0]
             remote = row[2] + os.sep + row[0] + '-' + jobid
@@ -353,7 +353,7 @@ def ftp_test(conf, svr, files, pc, q = None, stime=None):
             else:
                 r2 = False
             if r1 == False or r2 == False:
-	            result['failcnt'] += 1
+	            result['failcnt'] += 2
             #테스트 종료 기준
             if criteria == 'time':
                 if (time.time() - stime) >= test_time:
@@ -384,17 +384,32 @@ if __name__ == '__main__':
     stime = time.time()
     # 테스트 실행
     result = run_test(conf, slist)
-    
+    # 결과 출력
     totses = 0
     totcnt = 0
     totfail = 0
     print('\n[Session Result]')
+    header = '{0:^8}'.format('SType')
+    header += '{0:^23}'.format('IP : Port')
+    header += '{0:^10}'.format('Sess ID')
+    header += '{0:^10}'.format('CMDCNT')
+    header += '{0:^10}'.format('FailCNT')
+    header += '{0:^10}'.format('STime')
+    header += '{0:^10}'.format('FTime')
+    header += '{0:^10}'.format('TPS')
+    print(header)
     for row in result[0]:
-        #print(row)
-        totses += int(literal_eval(row.split(';')[3])['sescnt'])
-        totcnt += int(literal_eval(row.split(';')[3])['cmdcnt'])
-        totfail += int(literal_eval(row.split(';')[3])['failcnt'])
-        tmp = row.split(';')
-        print(tmp[0] + ' ' + tmp[1] + ' '  + tmp[2] + ' ' + tmp[4])
-
+        tmpd = literal_eval(row.split(';')[3])
+        totses += int(tmpd['sescnt'])
+        totcnt += int(tmpd['cmdcnt'])
+        totfail += int(tmpd['failcnt'])
+        tmp = '{0:^8}'.format(row.split(';')[0])
+        tmp += '{0:^23}'.format(row.split(';')[1])
+        tmp += '{0:^10}'.format(row.split(';')[2])
+        tmp += '{0:^10}'.format(str(tmpd['cmdcnt']))
+        tmp += '{0:^10}'.format(str(tmpd['failcnt']))
+        tmp += '{0:^10}'.format(time.strftime('%X',time.localtime(int(tmpd['stime']))))
+        tmp += '{0:^10}'.format(time.strftime('%X',time.localtime(int(tmpd['ftime']))))
+        tmp += '{0:^10}'.format('%.2f'%float(row.split(';')[4]))
+        print(tmp)
     showresult(totses, totcnt, totfail, result[1][0], result[1][1])

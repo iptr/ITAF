@@ -31,7 +31,6 @@ class DBCtrl():
             raise e
         self.cinf = temp['TAIFDB']
 
-
     def connect(self, host=None, port=None, user=None, passwd=None, db=None,\
     	charset=None):
         """
@@ -204,3 +203,22 @@ class DBCtrl():
     def close(self):
         self.db.commit()
         self.db.close()
+
+class DBSCtrl(DBCtrl):
+    db = None
+    cur = None
+    
+    def __init__(self):
+        pass
+        
+    def getTermSess(self):
+        pass
+    
+    def getTermCMD(self):
+        pass
+    
+    def getFTPSess(self):
+        pass
+    
+    def getFTPRet(self):
+        pass
