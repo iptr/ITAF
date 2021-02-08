@@ -28,9 +28,6 @@ class TermCtrl:
     def __init__(self):
         self.lgr = Logger().getlogger("TermCtrl")
         self.conf = getfileconf(CONF_PATH)
-        #self.setserverlist()
-        
-    def setserverlist(self):
         cols = self.conf['Tables']['server_list_cols'].split(',')
         self.cols=[]
         for col in cols:
@@ -38,10 +35,16 @@ class TermCtrl:
             self.cols.append(col.strip())
         self.server_list['client'] = []
         self.cols.append('client')
+        #self.setserverlist()
+        
+    def setserverlist(self):
         slist = getsvrlistcsv(self.conf['File']['server_list_file'])
         for row in slist:
-            for i,col in enumerate(cols):
-                self.server_list[col.strip()].append(row[i])
+            for i,col in enumerate(self.cols[:-1]):
+                try:
+                    self.server_list[col.strip()].append(row[i])
+                except Exception:
+                    print(i, col, row, self.cols, slist)
             self.server_list['client'].append('None')
             
     def connect(self, proto, host, port, user, passwd, timeout=5):
@@ -268,16 +271,30 @@ class FTRunner():
         dstpath(str) : 받아올 파일(절대 경로입력 필요)
         localpath(str) : 가져올 로컬 경로(절대 경로)
         '''
-        localfile = os.sep + localpath + os.path.basename(dstpath)
+        if os.path.basename(localpath) == '':
+            localfile = localpath + os.sep() + os.path.basename(dstpath)
+        else:
+            localfile = localpath
         # Client객체가 FTP인지 SFTP인지 체크한다
         if type(client) == fl.FTP:
-            f = open(localfile,'wb')
-            client.retrbinary(dstpath, f.write, blocksize=8192, rest=None)
-            f.close()
+            try:
+                f = open(localfile,'wb')
+                ftpcmd = 'RETR ' + os.path.abspath(dstpath)
+                client.retrbinary(ftpcmd, f.write, blocksize=8192, rest=None)
+                f.close()
+            except Exception as e:
+                print('DEBUG:', e, dstpath)
+                return -1
         elif type(client) == pm.sftp_client.SFTPClient:
-            client.get(dstpath, localpath)
+            try:
+                client.get(dstpath, localpath)
+            except Exception as e:
+                print('DEBUG:', e)
+                return -1
         else:
             self.lgr.error("Wrong type Client")
+            return -2
+        return 0
         
     def putfile(self, client, srcpath, dstpath):
         '''
@@ -286,18 +303,24 @@ class FTRunner():
         :srcpath: source path to upload
         :dstpath: target path to upload
         '''
-        dstfile = os.sep + dstpath + os.path.basename(srcpath)
+        if os.path.basename(dstpath) == '': 
+            dstfile = dstpath + os.sep() + os.path.basename(srcpath)
+        else:
+            dstfile = dstpath
         # Client객체가 FTP인지 SFTP인지 체크한다
         if type(client) == fl.FTP:
             try:
-                client.storbinary(dstfile, open(srcpath,'rb'), blocksize=8192, callback=None, rest=None)
+                ftpcmd = 'STOR ' + os.path.abspath(dstfile)
+                client.storbinary(ftpcmd, open(srcpath,'rb'), blocksize=8192, callback=None, rest=None)
             except Exception as e:
                 print(e)
         elif type(client) == pm.sftp_client.SFTPClient:
             try:
                 client.put(srcpath, dstfile)
             except Exception as e:
-                print(e)
+                print('DEBUG:', e)
+                print(srcpath, dstfile)
+                print(os.path.getsize(srcpath))
         else:
             self.lgr.error("Wrong type Client")
 

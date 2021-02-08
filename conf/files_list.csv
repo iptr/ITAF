@@ -1,0 +1,4 @@
+#파일명, 원본경로(Upload), 원격경로, 로컬경로(Download), File hash(SHA256)
+testfile0,upload/,/home/trollking/,download/,ddc0c680e8b862ae261b00c9e51a2f1874d7c0ca3820933d95462957b93977a9
+testfile1,upload/,/home/trollking/,download/,ddc0c680e8b862ae261b00c9e51a2f1874d7c0ca3820933d95462957b93977a9
+testfile2,upload/,/home/trollking/,download/,ddc0c680e8b862ae261b00c9e51a2f1874d7c0ca3820933d95462957b93977a9

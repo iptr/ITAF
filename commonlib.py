@@ -64,11 +64,15 @@ def getfileconf(conf_file, section=None, option=None):
 def getdbconf(dbname, table, option=None):
     pass
 
-def getsvrlistcsv(fname):
+def getlistfromcsv(fname):
     f = open(fname)
     reader = csv.reader(f)
-    org = list(reader)
+    ret = list(reader)
     f.close()
+    return ret
+
+def getsvrlistcsv(fname):
+    org = getlistfromcsv(fname)
     cols=['name','svc_type','host','port','userid','passwd']
     temp = []
     for row in org:
@@ -182,10 +186,15 @@ def repeater(values):
         if i >= len(values):
             i = 0
             
-def gethashfromlocal(buf):
+def gethash(buf):
     result = hashlib.sha256(buf)
     return result.hexdigest()
 
+def getfilehash(fname):
+    f = open(fname,'rb')
+    hash = gethash(f.read())
+    f.close()
+    return hash
 
 if __name__ == '__main__':
     pass
