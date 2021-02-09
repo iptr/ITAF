@@ -76,7 +76,7 @@ def showresult(totses, totcnt, totfail, stime, ftime):
     row += 'Total Command(Files) Count: %s\n'%totcnt
     row += 'Total Failure Count: %s\n'%totfail
     try:
-        row += 'Total Success Rate: %s%%\n'%(100-((totfail/totcnt)*100))
+        row += 'Total Success Rate: %.2f%%\n'%(100-((totfail/totcnt)*100))
     except Exception as e:
         row += 'Total Success Rate: 0%\n'
     row += 'Start Time : %s\n'%time.strftime('%c', time.localtime(stime))
