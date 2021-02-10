@@ -204,7 +204,7 @@ class DBCtrl():
         self.db.commit()
         self.db.close()
 
-class DBSCtrl(DBCtrl):
+class VerifyDBS(DBCtrl):
     db = None
     cur = None
     

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import time
 import hashlib
 import multiprocessing as mp
@@ -54,7 +54,7 @@ def showbasicconf(conf, tsc, cmdcnt):
     else:
         print('Wrong Configuration : CRITERIA')
         exit(-1)
-    row += 'Delay_time : %s\n'%conf['Common']['delay_time']
+    row += 'cmd_delay : %s\n'%conf['Common']['cmd_delay']
     row += 'CMD(File) Set Count : %s\n'%cmdcnt
     row += 'Total Server Count : %s \n'%tsc
     row += 'Session Count per a server : %s\n'%conf['Common']['session_count']
@@ -124,13 +124,14 @@ def run_test(conf, server_list):
     procs = []
     q = mp.Queue()
     stime = time.time()
-    for i,svr in enumerate(slist):
-        for pc in range(int(conf['Common']['session_count'])):
+    for pc in range(int(conf['Common']['session_count'])):
+        for i,svr in enumerate(slist):
             proc = mp.Process(target=test_func[test_type], 
                               args=(conf, svr, inputdata, (i,pc), q, stime))
             procs.append(proc)
             proc.start()
             print("%s %s %s:%s #%s"%(svr[0],svr[1],svr[2],svr[3],pc))
+            time.sleep(float(conf['Common']['proc_delay']))
     
     for proc in procs:
         proc.join()
@@ -151,7 +152,7 @@ def cmd_test(conf, svr, cmdlines, pc, q = None, stime=None):
         stime ([type], optional): [description]. Defaults to None.
     """
     test_time = int(conf['Common']['test_time'])
-    delay_time = float(conf['Common']['delay_time'])
+    cmd_delay = float(conf['Common']['cmd_delay'])
     test_type = conf['Common']['test_type'].lower()
     criteria = conf['Common']['criteria'].lower()
     persist_session = conf['Common']['persist_session'].lower()
@@ -210,7 +211,7 @@ def cmd_test(conf, svr, cmdlines, pc, q = None, stime=None):
                 if result['cmdcnt'] >= repeat_count:
                     break
             #딜레이
-            time.sleep(delay_time)
+            time.sleep(cmd_delay)
         sh.close()     
     else:
         while True:
@@ -248,7 +249,7 @@ def cmd_test(conf, svr, cmdlines, pc, q = None, stime=None):
                     sh.close()
                     break
             #딜레이
-            time.sleep(delay_time)
+            time.sleep(cmd_delay)
     result['ftime'] = time.time()
     buf = str(svr[1]) + ';' + str(svr[2])+ ':' + str(svr[3]) + ';' 
     buf += str(pc) + ';' + str(result) + ';' 
@@ -257,7 +258,7 @@ def cmd_test(conf, svr, cmdlines, pc, q = None, stime=None):
 
 def ftp_test(conf, svr, files, pc, q = None, stime=None):
     test_time = int(conf['Common']['test_time'])
-    delay_time = int(conf['Common']['delay_time'])
+    cmd_delay = int(conf['Common']['cmd_delay'])
     test_type = conf['Common']['test_type'].lower()
     criteria = conf['Common']['criteria'].lower()
     persist_session = conf['Common']['persist_session'].lower()
@@ -322,7 +323,7 @@ def ftp_test(conf, svr, files, pc, q = None, stime=None):
                 if result['cmdcnt'] >= repeat_count:
                     break
             #딜레이
-            time.sleep(delay_time)
+            time.sleep(cmd_delay)
         client.close()        
         #딜레이
     else:
@@ -364,7 +365,7 @@ def ftp_test(conf, svr, files, pc, q = None, stime=None):
                     client.close()
                     break
             #딜레이
-            time.sleep(delay_time)
+            time.sleep(cmd_delay)
             client.close()
     result['ftime'] = time.time()
     buf = str(svr[1]) + ';' + str(svr[2])+ ':' + str(svr[3]) + ';' 
@@ -378,12 +379,13 @@ if __name__ == '__main__':
     conf = getfileconf(CONF_FILE)
     slist = getsvrlistcsv(conf['Common']['server_list_csv'])
     
-    #설정 내용 체크
-    chk_config(conf)
+    #설정 내용 체크(미구현)
+    #chk_config(conf)
     
     stime = time.time()
     # 테스트 실행
     result = run_test(conf, slist)
+    
     # 결과 출력
     totses = 0
     totcnt = 0

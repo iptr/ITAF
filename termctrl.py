@@ -1,6 +1,6 @@
 import os
 import time
-import re
+import socket
 import telnetlib as tl
 import ftplib as fl
 import paramiko as pm
@@ -47,7 +47,7 @@ class TermCtrl:
                     print(i, col, row, self.cols, slist)
             self.server_list['client'].append('None')
             
-    def connect(self, proto, host, port, user, passwd, timeout=5):
+    def connect(self, proto, host, port, user, passwd, timeout=5, sip=None):
         """ SSH, Telnet, FTP 접속 후 해당 접속 객체를 리턴함
 
         Args:
@@ -72,28 +72,34 @@ class TermCtrl:
                 client.write(passwd.encode() + b'\n')
             except Exception as e:
                 self.lgr.error(e)
-                print(e)
+                print('%s:%s'%(host,port),e)
                 return -1
         elif proto == 'ftp':
             client = fl.FTP()
             try:
-                client.connect(host, int(port), int(timeout))
+                client.connect(host, int(port), int(timeout),
+                               source_address=sip)
                 client.login(user, passwd)
             except Exception as e:
                 self.lgr.error(e)
                 return -2
         elif proto == 'ssh' or proto == 'sftp':
+            sock = None
+            if sip != None:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.bind((sip, 0))
+                sock.connect((host, int(port)))
             client = pm.SSHClient()
             client.set_missing_host_key_policy(pm.AutoAddPolicy())
             try:
                 client.connect(host, port=int(port), username=user,
                                password=passwd, timeout=int(timeout),
-                               allow_agent=False)
+                               allow_agent=False, sock=sock)
                 sh = client.invoke_shell()
                 sftp = pm.SFTPClient.from_transport(client.get_transport())
             except Exception as e:
                 self.lgr.error(e)
-                print(e)
+                print(host,port,e)
                 return -3
             return (client, sh, sftp)
         else:
@@ -168,9 +174,8 @@ class CMDRunner():
         self.lgr = Logger().getlogger("CMDRunner")
 
     def runcmd(self, client, cmd, exresult=''):
-        result = ''
         buf = ''
-        if type(client) == pm.client.SSHClient or type(client) == pm.channel.Channel:
+        if type(client) == tl.Telnet or type(client) == pm.channel.Channel:
             self.waitrecv(client)
         if type(client) == pm.client.SSHClient:
             try:
@@ -178,7 +183,6 @@ class CMDRunner():
             except Exception as e:
                 self.lgr.error(e)
             buf = stdout.read() + stderr.read()
-            result
         elif type(client) == pm.channel.Channel:
             try:
                 client.send(cmd+'\n')
@@ -194,10 +198,12 @@ class CMDRunner():
         else:
             self.lgr.error('Wrong type client')
             return -1
+
         if type(buf) == str:
             pass
         else:
             buf = buf.decode()
+
         if buf.find(exresult) > -1:
             return (True, buf)
         else:
