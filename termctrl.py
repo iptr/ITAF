@@ -1,6 +1,6 @@
 import os
 import time
-import socket
+import socket as skt
 import telnetlib as tl
 import ftplib as fl
 import paramiko as pm
@@ -47,7 +47,7 @@ class TermCtrl:
                     print(i, col, row, self.cols, slist)
             self.server_list['client'].append('None')
             
-    def connect(self, proto, host, port, user, passwd, timeout=5, sip=None):
+    def connect(self, proto, host, port, user, passwd, timeout=5, ifc=None):
         """ SSH, Telnet, FTP 접속 후 해당 접속 객체를 리턴함
 
         Args:
@@ -85,9 +85,9 @@ class TermCtrl:
                 return -2
         elif proto == 'ssh' or proto == 'sftp':
             sock = None
-            if sip != None:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.bind((sip, 0))
+            if ifc != None:
+                sock = skt.socket(skt.AF_INET, skt.SOCK_STREAM)
+                sock.setsockopt(skt.SOL_SOCKET, skt.SO_BINDTODEVICE, ifc+'\0')
                 sock.connect((host, int(port)))
             client = pm.SSHClient()
             client.set_missing_host_key_policy(pm.AutoAddPolicy())
