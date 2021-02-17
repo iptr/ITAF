@@ -2,6 +2,7 @@
 import time
 import multiprocessing as mp
 from ast import literal_eval
+from typing import Tuple
 from termctrl import *
 from commonlib import *
 
@@ -13,8 +14,8 @@ class ConfSet:
     server_list_csv = None
     persist_session = None
     start_after_deploy = None
-    measure_spec = None
-    measure_spec_freq = None
+    measure = None
+    measure_delay = None
     proc_count = None
     session_count = None
     criteria = None
@@ -45,14 +46,14 @@ class ConfSet:
         self.server_list_csv = conf['Common']['server_list_csv']
         self.persist_session = conf['Common']['persist_session'].lower()
         self.start_after_deploy = conf['Common']['start_after_deploy'].lower()
-        self.measure_spec = conf['Common']['measure_spec'].lower()
-        self.measure_spec_freq = int(conf['Common']['measure_spec_freq'])
+        self.measure = conf['Common']['measure'].lower()
+        self.measure_delay = int(conf['Common']['measure_delay'])
         self.proc_count = int(conf['Common']['proc_count'])
-        self.sessiont_count = int(conf['Common']['session_count'])
+        self.session_count = int(conf['Common']['session_count'])
         self.criteria = conf['Common']['criteria'].lower()
         self.test_time = int(conf['Common']['test_time'])
         self.repeat_count = int(conf['Common']['repeat_count'])
-        self.session_delay = int(conf['Common']['session_delay'])
+        self.session_delay = float(conf['Common']['session_delay'])
         self.cmd_delay = float(conf['Common']['cmd_delay'])
         self.connect_timeout = int(conf['Common']['connect_timeout'])       
         self.bind_interface = conf['Common']['bind_interface'].lower()
@@ -63,19 +64,41 @@ class ConfSet:
         self.ssh_cmd_func = conf['SSHConfig']['ssh_cmd_func'].lower()
         del conf
 
-
 class DataSet:
-    targetset = []
     dataset = []
 
-    def __init__(self, slist, dataset):
-        self.targetset = slist
+    def __init__(self, dataset):
         self.dataset = dataset
-        
-        del slist
         del dataset
-        
 
+class ServerSet:
+    slist = []
+    sess_cnt = 0  
+
+    def __init__(self, server_list, sess_cnt):
+        self.slist = server_list
+        self.sess_cnt = sess_cnt
+        del server_list
+        del sess_cnt
+
+class Result:
+    rdic = {
+        # 프로세스 순서 번호
+        'psn':None,
+        # 대상 서버 개수
+        'svrcnt':0,
+        # 열었던 총 세션 개수
+        'sescnt':0,
+        # 명령어 개수
+        'cmdcnt':0,
+        # 실패 개수
+        'failcnt':0,
+        # 시작 시간
+        'stime':0,
+        # 종료 시간
+        'ftime':0
+    }
+        
 def chk_config(conf):
     # 설정내용이 올바른지 확인
     pass
@@ -83,40 +106,47 @@ def chk_config(conf):
 def prepare():
     conf = ConfSet(CONF_FILE)
     server_list = getsvrlistcsv(conf.server_list_csv)
-    proc_cnt = conf.proc_count
-    rptcnt = repeater(range(proc_cnt))
-    slist = [[] for i in range(proc_cnt)]
-    
+    rptcnt = repeater(range(conf.proc_count))
+    svrsetlist = [ServerSet([],0) for i in range(conf.proc_count)]
+    avail_svrlist = [] 
+
+    # 파일 서버 목록에서 서비스 테스트 타입과 동일한 서비스 타입의 서비스만 추림
     for sl in server_list:
         if sl[1].lower() == conf.svc_type:
-            slist[next(rptcnt)].append(sl)
-            
+            avail_svrlist.append(sl)
+
+    # (서버 * 프로세스 카운트)
+    # ex) 서버가 1대이고 프로세스 8인데 세션수가 16이다 그러면 프로세스 8대에서 각각 2개의 세션을 열고 테스트를 수행한다.
+    svrrpt = repeater(avail_svrlist)
+    for _ in range(len(avail_svrlist)):
+        svrsetlist[next(rptcnt)].slist.append(next(svrrpt))
+
+    # 프로세스별 세션 개수 입력
+    for i in range(conf.proc_count):
+        svrsetlist[i].sess_cnt = conf.session_count
+        
+    # 명령어와 예상결과값 또는 파일명 및 파일 해쉬값 같은 테스트 필요 데이터세트 설정
     dataset = []
     if conf.test_type in ('ssh', 'telnet'):
         cmdlist = getlistfromcsv(conf.cmd_list_file)
-        for row in cmdlist:
-            if row[0].find('#') == -1:
-                dataset.append(row)
     else:
-        fileslist = getlistfromcsv(conf.files_list_file)
-        for row in fileslist:
-            if row[0].find('#') == -1:
-                dataset.append(row)
-    dslist = []    
-    for sl in slist:
-        dslist.append(DataSet(conf, sl, dataset))
-    return conf, dslist
+        cmdlist = getlistfromcsv(conf.files_list_file)
+    for row in cmdlist:
+        if row[0].find('#') == -1:
+            dataset.append(row)
+
+    return conf, avail_svrlist, svrsetlist ,DataSet(dataset)
 
 def connect(term, conf, svr):
     temp = term.connect(svr[1], svr[2], svr[3], svr[4], svr[5],
                                         ifc = conf.bind_interface)
     if conf.test_type in ['ssh','telnet']:
-        ret = dist_ftpcli(temp, conf.test_type)
-    elif conf.test_type == ['sftp', 'ftp']:
         ret = dist_client(temp, conf.ssh_cmd_func)
+    elif conf.test_type == ['sftp', 'ftp']:
+        ret = dist_ftpcli(temp, conf.test_type)
     else:
-        print('wrong test_type')
         return -1
+    return ret
     
 def runcmd(runner, client, cmd):
     if len(cmd) < 2:
@@ -132,6 +162,72 @@ def runcmd(runner, client, cmd):
         return -1
     else:
         return 0
+
+def runft(runner, client, row):
+    row = next(filerpt)
+    upload = row[1] + os.sep + row[0]
+    remote = row[2] + os.sep + row[0] + '-'
+    download = row[3] + os.sep + row[0] + '-'
+    putret = runner.putfile(client, upload, remote)
+    getret = runner.getfile(client, remote, download)
+    #결과 검증1
+    c1 = putret not in [0,None] or getret not in [0,None]
+    if c1:
+        r1 = False
+    else:
+        r1 = True
+    #결과 검증2
+    hash = None
+    try:
+        hash = getfilehash(download)
+    except Exception as e:
+        print(e)
+    if hash == row[4]:
+        r2 = True
+    else:
+        r2 = False
+    if r1 == False or r2 == False:
+        return -1
+    else:
+        return 0    
+    
+def measure_session(slist, dataset, sig):
+    # 측정 여부 확인해서 주기적으로 성능 측정
+    tq = mp.Queue()
+    tconf = ConfSet(CONF_FILE)
+    tconf.persist_session = 'true'
+    tconf.proc_count = 1
+    tconf.session_count = 1
+    tconf.criteria = 'count'
+    tconf.repeat_count = len(dataset.dataset)
+    tconf.session_delay = 0
+    tconf.cmd_delay = 0
+    while True:
+        if sig.value == 2:
+            break
+        tprocs = []
+        tresult = []
+        for i,sl in enumerate(slist):
+            tresult.append([sl[0],sl[1],str(sl[2]+':'+sl[3]), 0])
+            svrset = ServerSet([sl], 1)
+            proc = mp.Process(target=tester, 
+                            args=(tconf, svrset, dataset, i, sig, tq))
+            proc.start()
+            tprocs.append(proc)
+
+        for proc in tprocs:
+            proc.join()
+
+        while tq.empty() == False:
+            tmp = tq.get(block=False, timeout=5)
+            if type(tmp) == dict:
+                tresult[int(tmp['psn'])][3] = float(tmp['ftime']) - float(tmp['stime'])
+        
+        for tr in tresult:
+            print(tr)
+        print('\n')
+        time.sleep(tconf.measure_delay)
+
 
 def dist_ftpcli(client, test_type):
     if type(client) == int:
@@ -164,27 +260,37 @@ def dist_client(client, ssh_cmd_func):
         print('Wrong type of client2', client, type(client))
         return -1
 
-def showbasicconf(conf, tsc, cmdcnt):
-    row = '\n[Test Configuration]\n'
-    row += 'Test Type : %s \n'%conf['Common']['test_type']
-    row += 'Test Criteria : %s\n'%conf['Common']['criteria']
-    if conf['Common']['criteria'].lower() == 'time':
-        row += 'Test Time : %s\n'%conf['Common']['test_time']
-    elif conf['Common']['criteria'].lower() == 'count':
-        row += 'Repeat Count : %s\n'%conf['Common']['repeat_count']
-    else:
-        print('Wrong Configuration : CRITERIA')
-        exit(-1)
-    row += 'cmd_delay : %s\n'%conf['Common']['cmd_delay']
-    row += 'CMD(File) Set Count : %s\n'%cmdcnt
-    row += 'Total Server Count : %s \n'%tsc
-    row += 'Session Count per a server : %s\n'%conf['Common']['session_count']
-    row += 'Total Session Count : %s \n'%(tsc*int(conf['Common']['session_count']))
-    row += 'Persist Session : %s\n'%conf['Common']['persist_session']
-    row += '\n[Test Started : Session information]'
-    print(row)
+def showbasicconf(conf, svrsetlist, dataset):
+    scnt = 0
+    row2 = '\n'+'{0:^25}'.format('[ Test Processes ]') + '\n\n'
+    header = '{0:<15}'.format('Server Name')
+    header += '{0:^8}'.format('SVC')
+    header += '{0:^20}'.format('IP Address:Port')
+    header += '{0:^10}'.format('Session')
+    for i, ss in enumerate(svrsetlist):
+        row2 += 'Test Process #%s\n'%i
+        row2 += header + '\n'
+        for sl in ss.slist:
+            scnt += 1 
+            row = '{0:^15}'.format(sl[0])
+            row += '{0:^8}'.format(sl[1])
+            row += '{0:^20}'.format(sl[2]+':'+sl[3])
+            row += '{0:^10}'.format(ss.sess_cnt)
+            row2 += row + '\n'
+        row2 += '\n'
 
-def showresult(totses, totcnt, totfail, stime, ftime):
+    row1 = '\n' + '{0:^30}'.format('[Test Configuration]') + '\n\n'
+    for mv in dir(conf):
+        if mv.startswith('_') == False:
+            row1 += mv.upper() + ' : ' + str(eval('conf.%s'%mv)) + '\n'
+    row1 += 'Total Server Count : %s \n'%scnt
+    row1 += 'Total Session Count : %s \n'%(scnt*conf.session_count)
+    row1 += 'Total Process Count : %s \n'%conf.proc_count
+    print(row1)
+    print(row2)
+
+
+def showresult(result):
     '''
     Total Sesssions:
     Total Command(Files) Count:
@@ -192,12 +298,46 @@ def showresult(totses, totcnt, totfail, stime, ftime):
     Finish Time :
     Test Running Time :
     '''
-    row = '\n[Test Result]\n'
+    totsvr = 0
+    totses = 0
+    totcmd = 0
+    totfail = 0
+    stime = result[1][0]
+    ftime = result[1][1]
+
+    print('\n\n[ Processes Result ]\n')
+    header = '{0:^5}'.format('PSN')
+    header += '{0:^5}'.format('SVR')
+    header += '{0:^5}'.format('CMD')
+    header += '{0:^6}'.format('Fail')
+    header += '{0:^10}'.format('STime')
+    header += '{0:^10}'.format('FTime')
+    header += '{0:^10}'.format('Runtime')
+    header += '{0:^10}'.format('TPS')
+    print(header)
+
+    for line in result[0]:
+        totsvr += int(line['svrcnt'])
+        totses += int(line['sescnt'])
+        totcmd += int(line['cmdcnt'])
+        totfail += int(line['failcnt'])
+        tmp = '{0:^5}'.format(line['psn'])
+        tmp += '{0:^5}'.format(line['svrcnt'])
+        tmp += '{0:^5}'.format(line['cmdcnt'])
+        tmp += '{0:^6}'.format(line['failcnt'])
+        tmp += '{0:^10}'.format(time.strftime('%X',time.localtime(line['stime'])))
+        tmp += '{0:^10}'.format(time.strftime('%X',time.localtime(line['ftime'])))
+        tmp += '{0:^10.2f}'.format(line['ftime']-line['stime'])
+        tmp += '{0:^10.2f}'.format(line['cmdcnt']/(line['ftime']-line['stime']))
+        print(tmp)
+            
+    row = '\n[ Total Result ]\n'
+    row += 'Total Servers: %s\n'%totsvr
     row += 'Total Sesssions: %s\n'%totses
-    row += 'Total Command(Files) Count: %s\n'%totcnt
+    row += 'Total Command(Files) Count: %s\n'%totcmd
     row += 'Total Failure Count: %s\n'%totfail
     try:
-        row += 'Total Success Rate: %.2f%%\n'%(100-((totfail/totcnt)*100))
+        row += 'Total Success Rate: %.2f%%\n'%(100-((totfail/totcmd)*100))
     except Exception as e:
         row += 'Total Success Rate: 0%\n'
     row += 'Start Time : %s\n'%time.strftime('%c', time.localtime(stime))
@@ -205,336 +345,178 @@ def showresult(totses, totcnt, totfail, stime, ftime):
     row += 'Running Time : %.2fS\n'%(ftime - stime)
     print(row)
 
-def run_test(conf, dslist):
-    test_func = {
-        'ssh' : cmd_test,
-        'telnet' : cmd_test,
-        'ftp' : ftp_test,
-        'sftp' : ftp_test
-    }
 
+def run_test(conf, slist, svrsetlist, dataset):
     # 기본 설정 출력 부분
-    showbasicconf(conf, dslist)
+    showbasicconf(conf, svrsetlist, dataset)
     procs = []
     result = []
-    # 부모 -> 자식 시그널용 공유메모리
+
+    # 부모 -> 자식 시그널용 공유메모리 
+    # 0: 초기 정지 상태, 1: 시작, 2:종료
     sig = mp.Value('d',0)
     # 자식 -> 부모 결과 전달용 큐
     rq = mp.Queue()
     stime = time.time()
-    
-    for psn, ds in enumerate(dslist):
-        proc = mp.Process(target=test_func[conf.test_type], 
-                          args=(conf, ds, psn, sig, rq,))
+    for psn, sl in enumerate(svrsetlist):
+        proc = mp.Process(target=tester, 
+                          args=(conf, sl, dataset, psn, sig, rq,))
         procs.append(proc)
         proc.start()
     
+    conndone = 0
+    while conndone < conf.proc_count:
+        while rq.empty() == False:
+            buf = rq.get(block=False, timeout=5)
+            if type(buf) == Tuple:
+                if buf[1] == 'CD':
+                    print('Process #%s : %s Sessions Connected'%(buf[0],buf[2]))
+                    conndone +=1
+
     if conf.start_after_deploy == 'true':
-        input('###### Press any key for starting... #####]')
+        input('\n\n###### Press any key for starting... ######')
     sig.value = 1
-    '''
-    # 측정 여부 확인해서 주기적으로 성능 측정
-    if conf['Common']['measure_spec'].lower() == 'true':
-        while sig.value = 1:
-            tmpq = mp.Queue()
-            tprocs = []
-            tresult = []
-            #ttds = DataSet(ds, dataset)
-            #tconf.criteria = 'count'
-            #tconf.sessiont_count = 1
-            #tconf.repeat_count = len(dataset)
-            #tconf.session_delay = 0
-            tconf.cmd_delay = 0
-            tproc = mp.Process(target=test_func[test_type], 
-                               args=(ttds, -1, sig, tmpq,))
-            tprocs.append(proc)
-            tproc.start()
-            tproc.join()
+
+    #중간에 세션 명령어 소요시간 측정
+    if conf.measure == 'true':
+        proc = mp.Process(target=measure_session,args=(slist, dataset, sig))
+        proc.start()
+        procs.append(proc)
     
-        while tmpq.empty() == False:
-            tresult.append(tmpq.get(block=False, timeout = 5))
-        print(tresult)
-       ''' 
     # 자식프로세스로부터 결과값 받아오기
     while len(result) < conf.proc_count:
         while rq.empty() == False:
             result.append(rq.get(block=False, timeout=5))
     
+    sig.value = 2
     for proc in procs:
         proc.join()
     ftime = time.time()
     return result, (stime, ftime)
 
-def cmd_test(conf, ds, psn, sig = None, rq = None):
-    """[summary]
 
-    Args:
-        conf : Configuration instance 
-        ds (TestDataSet): Test data Set instance 
-        ps ([type]): Process sequence Number
-        sig (Shared memory): signal from parant
-        rq (pm.Queue): for sending result to parant 
-    """
+def tester(conf, svrset, dataset, psn, sig = None, rq = None):
+    if len(svrset.slist) == 0:
+        print('Server set not exist')
+        return 0
     term = TermCtrl()
-    if ds.test_type in ['telnet', 'ssh'] :
+    if conf.test_type in ['telnet', 'ssh']:
         runner = CMDRunner()
+    elif conf.test_type in ['ftp', 'sftp']:
+        runner = FTRunner()
     else:
         print('Wrong Test Type')
         return -1
-        
-    
+
+    r = Result()
+    r.rdic['psn'] = psn
+    r.rdic['svrcnt'] = len(svrset.slist)
     clients = []
-    result = {
-        # 프로세스 순서 번호
-        'psn':psn,
-        # 전체 결과 
-        'result':None,
-        # 대상 서버 개수
-        'svrcnt':0,
-        # 열었던 총 세션 개수
-        'sescnt':0,
-        # 명령어 개수
-        'cmdcnt':0,
-        # 실패 개수
-        'failcnt':0,
-        # 시작 시간
-        'stime':0,
-        # 종료 시간
-        'ftime':0
-    }
+    
     # 데이터세트 리피터
-    cmdrpt = repeater(ds.dataset)
+    dsrpt = repeater(dataset.dataset)
+
     #세션 지속하고 명령어만 반복
+    r.rdic['stime'] = time.time()
     if conf.persist_session == 'true':
-        # 세션 카운터
-        scnt = 0
-        result['stime'] = time.time()
-        while True:
-            # 접속
-            for svr in ds.targetset:  
+        # 접속
+        for _ in range(svrset.sess_cnt):
+            for svr in svrset.slist:
                 client = connect(term, conf, svr)
                 if client != -1:
-                    result['sescnt'] += 1
+                    r.rdic['sescnt'] += 1
                 else:
-                    result['result'] = -1
-                    rq.put(result)
-                    print(str(result), 'Error')
+                    r.rdic['result'] = -1
+                    rq.put(r)
+                    print(str(r), 'Error')
                     exit(-1)
                 time.sleep(conf.session_delay)
-                runner.waitrecv(client)
+                c1 = conf.test_type == 'telnet'
+                c2 = conf.test_type == 'ssh'
+                c3 = conf.ssh_cmd_func == 'runcmdshell'
+                if c1 or (c2 and c3) :
+                    runner.waitrecv(client)
                 clients.append(client)
-            scnt += 1
-            # 세션 카운트가 0인이면 무한 반복
-            if conf.session_count > 0:
-                if scnt > conf.session_count:
-                    break
-            else:
-                if scnt % 100 == 0:
-                    print('#%s proc : %s Sessions Connected'(psn,scnt))
-        print('#%s proc : %s Sessions Connected'(psn,scnt))
-        
+        rq.put((psn,'CD',len(clients)))
+
         # 시작시그널이 올때까지 대기
         while True:
             if sig.value == 1:
                 break
             elif sig.value == 0:
                 time.sleep(1)
+            elif sig.value == 2:
+                return 0
             else:
                 return -1
-            
-        clirpt = repeater(clients)
+        
         # 명령어 수행부
         while True:
-            if runcmd(runner, next(clirpt), next(cmdrpt)) != 0:
-                result['failcnt'] += 1
+            for client in clients:
+                if conf.test_type in ['telnet', 'ssh']:
+                    ret = runcmd(runner, client, next(dsrpt))
+                    addvalue = 1
+                elif conf.test_type in ['ftp', 'sftp']:
+                    ret = runft(runner, client, next(dsrpt))
+                    addvalue = 2
+                else:
+                    pass
+
+                if ret != 0 :
+                    r.rdic['failcnt'] += addvalue
+                else:
+                    r.rdic['cmdcnt'] += addvalue
 
             #테스트 종료 기준 (시간, 횟수)
             if conf.criteria == 'time':
-                if (time.time() - result['stime']) >= conf.test_time:
+                if (time.time() - r.rdic['stime']) >= conf.test_time:
                     break
             else:
-                if result['cmdcnt'] >= conf.repeat_count:
+                if r.rdic['cmdcnt'] >= (conf.repeat_count * len(clients) * addvalue):
                     break
             #딜레이
             time.sleep(conf.cmd_delay)
+
         for client in clients:
             client.close()
     else:
-        svrrpt = repeater(conf.targetset)
+        svrrpt = repeater(svrset.slist)
         while True:
             # 접속
             svr = next(svrrpt)
             client = connect(term, conf, svr)
             if client != -1:
-                result['sescnt'] += 1
+                r.rdic['sescnt'] += 1
             else:
-                result['result'] = -1
                 rq.put(result)
                 print(str(result), 'error')
                 exit(-1)
             runner.waitrecv(client)
             
-            # 명령어 수행
-            if runcmd(runner, next(client), next(cmdrpt)) != 0:
-                result['failcnt'] += 1
+            # 명령어/파일 전송 수행
+            if runcmd(runner, next(client), next(dsrpt)) != 0:
+                r.rdic['failcnt'] += 1
             
             #테스트 종료 기준 (시간, 횟수)
             if conf.criteria == 'time':
-                if (time.time() - result['stime']) >= conf.test_time:
+                if (time.time() - r.rdic['stime']) >= conf.test_time:
                     client.close()
                     break
             else:
-                if result['cmdcnt'] >= conf.repeat_count:
+                if r.rdic['cmdcnt'] >= conf.repeat_count:
                     client.close()
                     break
             time.sleep(conf.cmd_delay)
-    result['ftime'] = time.time()
-    rq.put(result)
+    r.rdic['ftime'] = time.time()
+    rq.put(r.rdic)
 
-def ftp_test(conf, ds, psn, sig = None, rq = None):    
-    term = TermCtrl()
-    if conf.test_type in ['ftp', 'sftp']:
-        ftrun = FTRunner()
-    else:
-        print('Wrong Test Type')
-        return -1
-    
-    filerpt = repeater(conf.dataset)
-    result = {
-        'sescnt':0,
-        'cmdcnt':0,
-        'failcnt':0,
-        'stime':time.time(),
-        'ftime':0
-    }
-    if conf.persist_session == 'true':
-        #접속
-        connect(term, conf, svr)
-        client = dist_ftpcli(temp, test_type)
-        if client == -1:
-            return -1
-        else:
-            result['sescnt'] += 1
-
-        #업/다운 수행
-        while True:
-            row = next(filerpt)
-            upload = row[1] + os.sep + row[0]
-            remote = row[2] + os.sep + row[0] + '-' + jobid
-            download = row[3] + os.sep + row[0] + '-' + jobid
-            putret = ftrun.putfile(client, upload, remote)
-            getret = ftrun.getfile(client, remote, download)
-            result['cmdcnt'] += 2 
-            #결과 검증1
-            c1 = putret not in [0,None] or getret not in [0,None]
-            if c1:
-                r1 = False
-            else:
-                r1 = True
-            #결과 검증2
-            hash = None
-            try:
-                hash = getfilehash(download)
-            except Exception as e:
-                print(e)
-            if hash == row[4]:
-                r2 = True
-            else:
-                r2 = False
-            if r1 == False or r2 == False:
-                result['failcnt'] += 2
-            #테스트 종료 기준
-            if criteria == 'time':
-                if (time.time() - stime) >= test_time:
-                    break
-            else:
-                if result['cmdcnt'] >= repeat_count:
-                    break
-            #딜레이
-            time.sleep(cmd_delay)
-        client.close()        
-        #딜레이
-    else:
-        while True:
-            temp = term.connect(svr[1], svr[2], svr[3], svr[4], svr[5],
-                                ifc = bind_interface)
-            client = dist_ftpcli(temp, test_type)
-            if client == -1:
-                return -1
-            else:
-                result['sescnt'] += 1
-            row = next(filerpt)
-            upload = row[1] + os.sep + row[0]
-            remote = row[2] + os.sep + row[0] + '-' + jobid
-            download = row[3] + os.sep + row[0] + '-' + jobid           
-            putret = ftrun.putfile(client, upload, remote)
-            getret = ftrun.getfile(client, remote, download)
-            result['cmdcnt'] += 1
-            #결과 검증1
-            c1 = putret not in [0,None] or getret not in [0,None]
-            if c1:
-                r1 = False
-            else:
-                r1 = True
-            #결과 검증2
-            hash = getfilehash(download)
-            if hash == row[4]:
-                r2 = True
-            else:
-                r2 = False
-            if r1 == False or r2 == False:
-	            result['failcnt'] += 2
-            #테스트 종료 기준
-            if conf.criteria == 'time':
-                if (time.time() - stime) >= conf.test_time:
-                    client.close()
-                    break
-            else:
-                if result['cmdcnt'] >= conf.repeat_count:
-                    client.close()
-                    break
-            #딜레이
-            time.sleep(conf.cmd_delay)
-            client.close()
-    result['ftime'] = time.time()
-    q.put(result)
-
-def cmd_measure(slist, rq):
-    pass            
-            
+ 
 if __name__ == '__main__':
     # 테스트 준비
-    conf, dslist = prepare()
+    conf, slist, svrsetlist, dataset = prepare()
     
     # 테스트 실행
-    result = run_test(conf, dslist)
-    
+    result = run_test(conf, slist, svrsetlist, dataset)
+
     # 결과 출력
-    totses = 0
-    totcnt = 0
-    totfail = 0
-    print('\n[Session Result]')
-    header = '{0:^8}'.format('SType')
-    header += '{0:^23}'.format('IP : Port')
-    header += '{0:^10}'.format('Sess ID')
-    header += '{0:^10}'.format('CMDCNT')
-    header += '{0:^10}'.format('FailCNT')
-    header += '{0:^10}'.format('STime')
-    header += '{0:^10}'.format('FTime')
-    header += '{0:^10}'.format('TPS')
-    print(header)
-    for row in result[0]:
-        tmpd = literal_eval(row.split(';')[3])
-        totses += int(tmpd['sescnt'])
-        totcnt += int(tmpd['cmdcnt'])
-        totfail += int(tmpd['failcnt'])
-        tmp = '{0:^8}'.format(row.split(';')[0])
-        tmp += '{0:^23}'.format(row.split(';')[1])
-        tmp += '{0:^10}'.format(row.split(';')[2])
-        tmp += '{0:^10}'.format(str(tmpd['cmdcnt']))
-        tmp += '{0:^10}'.format(str(tmpd['failcnt']))
-        tmp += '{0:^10}'.format(time.strftime('%X',time.localtime(int(tmpd['stime']))))
-        tmp += '{0:^10}'.format(time.strftime('%X',time.localtime(int(tmpd['ftime']))))
-        tmp += '{0:^10}'.format('%.2f'%float(row.split(';')[4]))
-        print(tmp)
-    showresult(totses, totcnt, totfail, result[1][0], result[1][1])
+    showresult(result)

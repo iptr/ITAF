@@ -87,7 +87,7 @@ class TermCtrl:
             sock = None
             if ifc != None:
                 sock = skt.socket(skt.AF_INET, skt.SOCK_STREAM)
-                sock.setsockopt(skt.SOL_SOCKET, skt.SO_BINDTODEVICE, ifc+'\0')
+                sock.setsockopt(skt.SOL_SOCKET, skt.SO_BINDTODEVICE, (ifc+'\0').encode('utf8'))
                 sock.connect((host, int(port)))
             client = pm.SSHClient()
             client.set_missing_host_key_policy(pm.AutoAddPolicy())
@@ -255,7 +255,7 @@ class CMDRunner():
                     readwait += 1
                     time.sleep(0.1)
         else:
-            self.lgr.error('client type error')
+            self.lgr.error('client type error: %s'%client)
             return -1
                 
         if decoding:
