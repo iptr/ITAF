@@ -163,11 +163,10 @@ def runcmd(runner, client, cmd):
     else:
         return 0
 
-def runft(runner, client, row):
-    row = next(filerpt)
+def runft(runner, client, row, sessid=''):
     upload = row[1] + os.sep + row[0]
-    remote = row[2] + os.sep + row[0] + '-'
-    download = row[3] + os.sep + row[0] + '-'
+    remote = row[2] + os.sep + row[0] + '-' + sessid
+    download = row[3] + os.sep + row[0] + '-' + sessid
     putret = runner.putfile(client, upload, remote)
     getret = runner.getfile(client, remote, download)
     #결과 검증1
@@ -278,7 +277,6 @@ def showbasicconf(conf, svrsetlist, dataset):
             row += '{0:^10}'.format(ss.sess_cnt)
             row2 += row + '\n'
         row2 += '\n'
-
     row1 = '\n' + '{0:^30}'.format('[Test Configuration]') + '\n\n'
     for mv in dir(conf):
         if mv.startswith('_') == False:
@@ -288,7 +286,6 @@ def showbasicconf(conf, svrsetlist, dataset):
     row1 += 'Total Process Count : %s \n'%conf.proc_count
     print(row1)
     print(row2)
-
 
 def showresult(result):
     '''
@@ -453,11 +450,12 @@ def tester(conf, svrset, dataset, psn, sig = None, rq = None):
         # 명령어 수행부
         while True:
             for client in clients:
+                
                 if conf.test_type in ['telnet', 'ssh']:
                     ret = runcmd(runner, client, next(dsrpt))
                     addvalue = 1
                 elif conf.test_type in ['ftp', 'sftp']:
-                    ret = runft(runner, client, next(dsrpt))
+                    ret = runft(runner, client, next(dsrpt), sessid='')
                     addvalue = 2
                 else:
                     pass
