@@ -1,4 +1,5 @@
 import os
+import platform as pf
 import time
 import socket as skt
 import telnetlib as tl
@@ -88,23 +89,27 @@ class TermCtrl:
             if ifc != None:
                 sock = skt.socket(skt.AF_INET, skt.SOCK_STREAM)
                 sock.setsockopt(skt.SOL_SOCKET, skt.SO_BINDTODEVICE, (ifc+'\0').encode('utf8'))
-                sock.connect((host, int(port)))
+                try:
+                    sock.connect((host, int(port)))
+                except Exception as e:
+                    print(e, host+':'+str(port))
+                    return -3
             client = pm.SSHClient()
             client.set_missing_host_key_policy(pm.AutoAddPolicy())
             try:
                 client.connect(host, port=int(port), username=user,
                                password=passwd, timeout=int(timeout),
-                               allow_agent=False, sock=sock)
+                               allow_agent=False, sock=sock,
+                               banner_timeout=30, auth_timeout=30)
                 sh = client.invoke_shell()
                 sftp = pm.SFTPClient.from_transport(client.get_transport())
             except Exception as e:
                 self.lgr.error(e)
-                print(host,port,e)
-                return -3
+                return -4
             return (client, sh, sftp)
         else:
             self.lgr.error('Wrong protocol : %s' % proto)
-            return -4
+            return -5
         return client
     
     def connectlist(self, cno = None):
