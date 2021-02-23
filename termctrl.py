@@ -1,14 +1,79 @@
 import os
-import platform as pf
 import time
+from struct import pack
+from ipaddress import IPv4Address
 import socket as skt
 import telnetlib as tl
 import ftplib as fl
 import paramiko as pm
-
 from taiflogger import *
 from dbctrl import *
 from commonlib import *
+
+class NATIDPKT:
+    idcode = b'NATIDENTITY'
+    pktver = pack('>H',1)
+    totlen = pack('>H',0)
+    encrypt = pack('>B',0)
+    svctype = pack('>I',4)
+    rdplog = pack('>I',0)
+    svcnum = pack('>I',0)
+    localip = b''
+    localport = b''
+    targetip = b''
+    targetport = b''
+    gwip = IPv4Address('0.0.0.0').packed
+    gwport = pack('>H',0)
+    certidlen = pack('>H',9)  
+    certid = b'trollking'
+    proglen = pack('>H',11)
+    progname = b'trolltester'
+    assistkeylen = pack('>H',0)
+    assistkey = b''
+    proghashlen = pack('>H',0)
+    proghash = b''
+    webassist = pack('>I',0)
+    ostype = pack('>H',0)
+    msgtunnel = pack('>H',0)
+    payload = b''
+
+    def __init__(self):
+        pass
+
+    def set(self, svcnum=b'', tgip=b'', tgport=b'', gwip=b'', 
+            gwport=b'', certid=b'', loip=b'', loport=b''):
+        # 필수정보 교체: 대상서비스번호, 대상IP, port, 로컬IP, 로컬port, dbsIP, dbsport, 
+        #               보안계정)
+        if loip != b'':
+            self.localip = IPv4Address(loip).packed
+        if loport != b'':
+            self.localport = pack('>H',loport)
+        if svcnum != b'':
+            self.svcnum = pack('>I',int(svcnum))
+        if tgip != b'':
+            self.targetip = IPv4Address(tgip).packed 
+        if tgport != b'':
+            self.targetport = pack('>H',int(tgport))
+        if gwip != b'':
+            self.gwip = IPv4Address(gwip).packed
+        if gwport != b'':
+            self.gwport = pack('>H',int(gwport))
+        if certid != b'':
+            try:
+                self.certid = certid.encode()
+            except Exception as e:
+                print('debug : %s, %s'%(e,certid))
+    # 보안계정 길이 계산
+        self.certidlen = pack('>H',len(self.certid))
+
+        # 전체 길이 계산(encrypt ~ 끝까지)
+        payload = self.encrypt + self.svctype + self.rdplog + self.svcnum
+        payload += self.localip + self.localport + self.targetip + self.targetport
+        payload += self.gwip + self.gwport + self.certidlen + self.certid
+        payload += self.proglen + self.progname + self.assistkeylen + self.assistkey
+        payload += self.proghashlen + self.proghash + self.webassist + self.ostype + self.msgtunnel
+        self.totlen = pack('>H', len(payload))
+        self.payload = self.idcode + self.pktver + self.totlen + payload
 
 class TermCtrl:
     """
@@ -48,9 +113,9 @@ class TermCtrl:
                     print(i, col, row, self.cols, slist)
             self.server_list['client'].append('None')
             
-    def connect(self, proto, host, port, user, passwd, timeout=5, ifc=None):
+    def connect(self, proto, host, port, user, passwd, timeout=5, ifc=None, 
+                usenatid=False, natidpkt=None):
         """ SSH, Telnet, FTP 접속 후 해당 접속 객체를 리턴함
-
         Args:
             proto (str): Protocol 'SSH','TELNET','FTP'
             host (str): host ip
@@ -94,6 +159,10 @@ class TermCtrl:
                 except Exception as e:
                     print(e, host+':'+str(port))
                     return -3
+                if usenatid == True and natidpkt != None:
+                    sktname = sock.getsockname()
+                    natidpkt.set(loip=sktname[0], loport=sktname[1])
+                    sock.send(natidpkt.payload)
             client = pm.SSHClient()
             client.set_missing_host_key_policy(pm.AutoAddPolicy())
             try:
@@ -187,6 +256,7 @@ class CMDRunner():
                 stdin, stdout, stderr = client.exec_command(cmd)
             except Exception as e:
                 self.lgr.error(e)
+                return -1
             buf = stdout.read() + stderr.read()
         elif type(client) == pm.channel.Channel:
             try:
@@ -294,13 +364,13 @@ class FTRunner():
                 client.retrbinary(ftpcmd, f.write, blocksize=8192, rest=None)
                 f.close()
             except Exception as e:
-                print('DEBUG:', e, dstpath)
+                print('DEBUG1:', e, dstpath)
                 return -1
         elif type(client) == pm.sftp_client.SFTPClient:
             try:
                 client.get(dstpath, localpath)
             except Exception as e:
-                print('DEBUG:', e)
+                print('DEBUG2:', e, dstpath, localpath)
                 return -1
         else:
             self.lgr.error("Wrong type Client")
@@ -325,16 +395,16 @@ class FTRunner():
                 client.storbinary(ftpcmd, open(srcpath,'rb'), blocksize=8192, callback=None, rest=None)
             except Exception as e:
                 print(e)
+                return -1
         elif type(client) == pm.sftp_client.SFTPClient:
             try:
                 client.put(srcpath, dstfile)
             except Exception as e:
                 print('DEBUG:', e)
-                print(srcpath, dstfile)
-                print(os.path.getsize(srcpath))
+                return -2
         else:
             self.lgr.error("Wrong type Client")
-
+        return 0
         # Check source path exists
         # Check destination path on target server exist
         # If directory does not exist, create directory

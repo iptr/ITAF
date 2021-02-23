@@ -22,17 +22,10 @@ class DBCtrl():
     def __init__(self):
         # json 형태의 설정파일을 읽고 접속정보를 읽어옴
         self.lgr = Logger().getlogger("DBController")
-        try:
-            jf = open(CONF_PATH)
-            temp = json.load(jf)
-            jf.close()
-        except Exception as e:
-            self.lgr.error(e)
-            raise e
-        self.cinf = temp['TAIFDB']
+        pass
 
-    def connect(self, host=None, port=None, user=None, passwd=None, db=None,\
-    	charset=None):
+    def connect(self, host=None, port=None, user=None, passwd=None, db=None,
+    	        charset=None):
         """
         Connect to DB with cinf or parameters
 

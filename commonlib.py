@@ -64,19 +64,44 @@ def getfileconf(conf_file, section=None, option=None):
 def getdbconf(dbname, table, option=None):
     pass
 
+def delcomment(datalist):
+    ret = []
+    for line in datalist:
+        if type(line) == list:
+            if line[0].find('#') > -1:
+                pass
+            else:
+                ret.append(line)
+        else:
+            if -1 < str(line).find('#') < 4:
+                pass
+            else:
+                ret.append(line)
+    return ret
+
 def getlistfromcsv(fname):
     f = open(fname)
     reader = csv.reader(f)
-    ret = list(reader)
+    tmp = list(reader)
     f.close()
+    ret = delcomment(tmp)
+    return ret
+
+def getlistfromtxt(fname):
+    f = open(fname)
+    lines = f.readlines()
+    f.close()
+    ret = []
+    ret = delcomment(tmp)
     return ret
 
 def getsvrlistcsv(fname):
     org = getlistfromcsv(fname)
     cols=['name','svc_type','host','port','userid','passwd']
+
     temp = []
     for row in org:
-        if len(row) != len(cols) :
+        if len(row) < len(cols) :
             continue
         if 4 > row[0].find('#') > -1:
             continue
@@ -187,7 +212,7 @@ def repeater(values):
             i = 0
             
 def gethash(buf):
-    result = hashlib.sha256(buf)
+    result = hashlib.sha256(buf.encode())
     return result.hexdigest()
 
 def getfilehash(fname):
@@ -195,6 +220,12 @@ def getfilehash(fname):
     hash = gethash(f.read())
     f.close()
     return hash
+
+def tupletostrlist(data):
+    ret = []
+    for line in data:
+        ret.append(line[0])
+    
 
 if __name__ == '__main__':
     pass
