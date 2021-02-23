@@ -92,7 +92,7 @@ def getlistfromtxt(fname):
     lines = f.readlines()
     f.close()
     ret = []
-    ret = delcomment(tmp)
+    ret = delcomment(lines)
     return ret
 
 def getsvrlistcsv(fname):

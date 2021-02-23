@@ -143,8 +143,7 @@ class TermCtrl:
         elif proto == 'ftp':
             client = fl.FTP()
             try:
-                client.connect(host, int(port), int(timeout),
-                               source_address=sip)
+                client.connect(host, int(port), int(timeout))
                 client.login(user, passwd)
             except Exception as e:
                 self.lgr.error(e)
