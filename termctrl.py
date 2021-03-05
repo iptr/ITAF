@@ -63,8 +63,10 @@ class NATIDPKT:
                 self.certid = certid.encode()
             except Exception as e:
                 print('debug : %s, %s'%(e,certid))
-    # 보안계정 길이 계산
+        self.assistkey = get_hash('TrollkingTester').encode()
+        # 가변 길이 입력
         self.certidlen = pack('>H',len(self.certid))
+        self.assistkeylen = pack('>H',len(self.assistkey))
 
         # 전체 길이 계산(encrypt ~ 끝까지)
         payload = self.encrypt + self.svctype + self.rdplog + self.svcnum
@@ -74,6 +76,55 @@ class NATIDPKT:
         payload += self.proghashlen + self.proghash + self.webassist + self.ostype + self.msgtunnel
         self.totlen = pack('>H', len(payload))
         self.payload = self.idcode + self.pktver + self.totlen + payload
+
+    def show_payload(self):
+        print("idcode : ",self.idcode)
+        print("pktver : ",self.pktver)
+        print("totlen : ",self.totlen)
+        print("encryp : ",self.encrypt)
+        print("svctyp : ",self.svctype)
+        print("rdplog : ",self.rdplog)
+        print("svcnum : ",self.svcnum)
+        print("loc_ip : ",self.localip)
+        print("loPort : ",self.localport)
+        print("tg  IP : ",self.targetip)
+        print("tgPort : ",self.targetport)
+        print("gw  IP : ",self.gwip)
+        print("gwPort : ",self.gwport)
+        print("Crtlen : ",self.certidlen)
+        print("CertID : ",self.certid)
+        print("Prolen : ",self.proglen)
+        print("pronam : ",self.progname)
+        print("keylen : ",self.assistkeylen)
+        print("unikey : ",self.assistkey)
+        print("phshln : ",self.proghashlen)
+        print("prhash : ",self.proghash)
+        print("webass : ",self.webassist)
+        print("ostype : ",self.ostype)
+        print("msgtur : ",self.msgtunnel)
+
+    def tosegment(self, rawdata):
+        label = ["idcode","pktver","totlen","encryp","svctyp","rdplog",
+                 "svcnum","loc_ip","loPort","targIP","tgPort","gw  IP",
+                 "gwPort","Crtlen","CertID","Prolen","pronam","keylen",
+                 "unikey","phshln","prhash","webass","ostype","msgtur"]
+        segments = [11,2,2,1,4,4,4,4,2,4,2,4,2,2,0,2,0,2,0,2,0,4,2,2]
+        hexdata = []
+        for x in map(''.join,zip(*[iter(rawdata)]*2)):
+            hexdata.append(x)
+        
+        idx = 0
+        for i, seg in enumerate(segments):
+            if len(segments) <= (i+1):
+                pass
+            else:
+                if segments[i+1] == 0:
+                    segments[i+1] = int(''.join(hexdata[idx:idx+seg]),16)
+
+            print(label[i], ''.join(hexdata[idx:idx+seg]))
+            idx += seg
+
+        
 
 class TermCtrl:
     """
@@ -93,7 +144,7 @@ class TermCtrl:
 
     def __init__(self):
         self.lgr = Logger().getlogger("TermCtrl")
-        self.conf = getfileconf(CONF_PATH)
+        self.conf = get_file_conf(CONF_PATH)
         cols = self.conf['Tables']['server_list_cols'].split(',')
         self.cols=[]
         for col in cols:
@@ -103,7 +154,7 @@ class TermCtrl:
         self.cols.append('client')
         #self.setserverlist()
         
-    def setserverlist(self):
+    def set_server_list(self):
         slist = getsvrlistcsv(self.conf['File']['server_list_file'])
         for row in slist:
             for i,col in enumerate(self.cols[:-1]):
@@ -117,7 +168,7 @@ class TermCtrl:
                 usenatid=False, natidpkt=None):
         """ SSH, Telnet, FTP 접속 후 해당 접속 객체를 리턴함
         Args:
-            proto (str): Protocol 'SSH','TELNET','FTP'
+            proto (str): Protocol 'ssh','sftp','TELNET','FTP'
             host (str): host ip
             port (int or str): port
             user (str): user id
@@ -143,12 +194,13 @@ class TermCtrl:
         elif proto == 'ftp':
             client = fl.FTP()
             try:
-                client.connect(host, int(port), int(timeout))
+                client.connect(host, int(port), int(timeout),
+                               source_address=sip)
                 client.login(user, passwd)
             except Exception as e:
                 self.lgr.error(e)
                 return -2
-        elif proto == 'ssh' or proto == 'sftp':
+        elif proto in ['ssh', 'sftp']:
             sock = None
             if ifc != None:
                 sock = skt.socket(skt.AF_INET, skt.SOCK_STREAM)
@@ -160,21 +212,36 @@ class TermCtrl:
                     return -3
                 if usenatid == True and natidpkt != None:
                     sktname = sock.getsockname()
-                    natidpkt.set(loip=sktname[0], loport=sktname[1])
+                    natidpkt.set(loport=sktname[1])
                     sock.send(natidpkt.payload)
             client = pm.SSHClient()
             client.set_missing_host_key_policy(pm.AutoAddPolicy())
             try:
-                client.connect(host, port=int(port), username=user,
+                test = client.connect(host, port=int(port), username=user,
                                password=passwd, timeout=int(timeout),
                                allow_agent=False, sock=sock,
                                banner_timeout=30, auth_timeout=30)
-                sh = client.invoke_shell()
-                sftp = pm.SFTPClient.from_transport(client.get_transport())
             except Exception as e:
-                self.lgr.error(e)
-                return -4
-            return (client, sh, sftp)
+                self.lgr.error("Connect SSH : ",e)
+                print("Connect SSH : ", e)
+                return -41
+
+            if proto == 'ssh':
+                try:
+                    sh = client.invoke_shell()
+                except Exception as e:
+                    print("Invoke_shell : ", e)
+                    return -42
+                return (client, sh)
+            
+            if proto == 'sftp':
+                try:
+                    sftp = pm.SFTPClient.from_transport(client.get_transport())
+                except Exception as e:
+                    print("SFTP Connect : ",e)
+                    self.lgr.error(e)
+                return -43
+                return (client, sftp)
         else:
             self.lgr.error('Wrong protocol : %s' % proto)
             return -5

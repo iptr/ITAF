@@ -1,5 +1,4 @@
 import pymysql as mysql
-import json
 from taiflogger import *
 
 CONF_PATH = 'conf/taif.conf'

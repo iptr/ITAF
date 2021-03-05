@@ -1,9 +1,6 @@
 #!/usr/bin/python3
 import time
-import math
 import multiprocessing as mp
-from ast import literal_eval
-from typing import Tuple
 from termctrl import *
 from dbctrl import *
 from commonlib import *
@@ -12,7 +9,8 @@ CONF_FILE = 'conf/term_tester.conf'
 
 class ConfSet:
     def __init__(self, configfile):
-        conf = getfileconf(configfile)
+        STR_TRUE = 'true'
+        conf = get_file_conf(configfile)
         self.test_type = conf['Common']['test_type'].lower()
         if self.test_type in ['ssh','sftp']:
             self.svc_type = 'ssh'
@@ -23,8 +21,7 @@ class ConfSet:
         else:
             print('Config Error')
             return -1
-        strue = 'true'
-        self.use_nat_identity = conf['DBSAFER']['use_nat_identity'].lower() == strue
+        self.use_nat_identity = conf['DBSAFER']['use_nat_identity'].lower() == STR_TRUE
         self.dbsafer_certid_csv = conf['DBSAFER']['dbsafer_certid_csv']
         self.dbsafer_gw = conf['DBSAFER']['dbsafer_gw']
         self.dbsafer_log = conf['DBSAFER']['dbsafer_log']
@@ -35,10 +32,11 @@ class ConfSet:
             self.dynamic_port = [None]
         self.dbsafer_dbid = conf['DBSAFER']['dbsafer_dbid']
         self.dbsafer_dbpw = conf['DBSAFER']['dbsafer_dbpw']
+        self.chk_svcnum = conf['DBSAFER']['chk_svcnum'].lower() == STR_TRUE 
         self.server_list_csv = conf['Input']['server_list_csv']
-        self.persist_session = conf['Common']['persist_session'].lower() == strue
-        self.start_after_deploy = conf['Common']['start_after_deploy'].lower() == strue
-        self.measure = conf['Common']['measure'].lower() == strue
+        self.persist_session = conf['Common']['persist_session'].lower() == STR_TRUE
+        self.start_after_deploy = conf['Common']['start_after_deploy'].lower() == STR_TRUE
+        self.measure = conf['Common']['measure'].lower() == STR_TRUE
         self.measure_delay = int(conf['Common']['measure_delay'])
         self.proc_count = int(conf['Common']['proc_count'])
         self.proc_delay = float(conf['Common']['proc_delay'])
@@ -50,11 +48,11 @@ class ConfSet:
         self.cmd_delay = float(conf['Common']['cmd_delay'])
         self.connect_timeout = int(conf['Common']['connect_timeout'])       
         self.bind_interface = conf['Common']['bind_interface'].lower()
-        self.cmd_list_file = conf['Input']['cmd_list_file']
-        self.files_list_file = conf['Input']['files_list_file']
-        self.ssh_auth_type = conf['SSHConfig']['ssh_auth_type'].lower() == strue
+        self.cmd_list_csv = conf['Input']['cmd_list_csv']
+        self.files_list_csv = conf['Input']['files_list_csv']
+        self.ssh_auth_type = conf['SSHConfig']['ssh_auth_type'].lower() == STR_TRUE
         self.ssh_key_file = conf['SSHConfig']['ssh_key_file']
-        self.ssh_cmd_func = conf['SSHConfig']['ssh_cmd_func'].lower()
+        self.ssh_invoke_sh = conf['SSHConfig']['ssh_invoke_sh'].lower() == STR_TRUE
         del conf
 
 class DataSet:
@@ -87,30 +85,42 @@ class Result:
     ftime = 0
    
 def chk_config(conf):
+    # NIY(Not Implemented Yet)
     # 설정내용이 올바른지 확인
     pass
 
 def prepare():
+    """
+    테스트 준비 과정
+    Returns : conf, avail_svrlist, svrsetlist ,DataSet(dataset), certidlist
+    """
     avail_svrlist = [] 
     conf = ConfSet(CONF_FILE)
 
     # 세션 개수가 0일경우 65535로 세션개수 변경
     if 0 == conf.session_count:
         conf.session_count = 65535
+
     # 대상서버 목록 가져오기
-    server_list = getsvrlistcsv(conf.server_list_csv)
+    server_list = get_server_list_csv(conf.server_list_csv)
+    if server_list == -1 or len(server_list) < 1:
+        print('Error : get_server_list_csv()',server_list, conf.server_list_csv)
+        return -1
+
     # 사용자 식별 사용여부에 따라 DBSAFER서버리스트 가져오기
     if True == conf.use_nat_identity:
-        avail_svrlist, certidlist = setnatidentity(conf, server_list)
+        avail_svrlist, certidlist = set_nat_identity(conf, server_list)
     else:
-    # 파일 서버 목록에서 서비스 테스트 타입과 동일한 서비스 타입의 서비스만 추림
+        # 파일 서버 목록에서 서비스 테스트 타입과 동일한 서비스 타입의 서비스만 추림
         for sl in server_list:
             if sl[1].lower() == conf.svc_type:
                 avail_svrlist.append(sl)
         certidlist = None
+
     # 프로세스별 서버리스트 및 세션개수 정리
     totses = len(avail_svrlist) * conf.session_count
     svrcnt = len(avail_svrlist)
+
     if conf.proc_count > svrcnt:
         if conf.proc_count > totses:
             conf.proc_count = totses
@@ -120,9 +130,10 @@ def prepare():
     else:
         sflag = False
     svrsetlist = [ServerSet([],0) for i in range(conf.proc_count)]
-    rptcnt = repeater(range(conf.proc_count))
+    cntrt = rotator(range(conf.proc_count))
+    
     for svr in avail_svrlist:
-        svrsetlist[next(rptcnt)].slist.append(svr)
+        svrsetlist[next(cntrt)].slist.append(svr)
 
     # 프로세스별 세션 개수 입력
     for i in range(conf.proc_count):
@@ -132,51 +143,91 @@ def prepare():
                 svrsetlist[i].sess_cnt += int(totses / conf.proc_count)
         else:
             svrsetlist[i].sess_cnt = conf.session_count * len(svrsetlist[i].slist)
+
     # 명령어와 예상결과값 또는 파일명 및 파일 해쉬값 같은 테스트 필요 데이터세트 설정
     dataset = []
     if conf.test_type in ('ssh', 'telnet'):
-        cmdlist = getlistfromcsv(conf.cmd_list_file)
+        cmdlist = get_list_from_csv(conf.cmd_list_csv)
     else:
-        cmdlist = getlistfromcsv(conf.files_list_file)
-    for row in cmdlist:
-        if -1 == row[0].find('#'):
-            dataset.append(row)
+        cmdlist = get_list_from_csv(conf.files_list_csv)
+    
+    # 샵 주석 제거된 리스트
+    dataset = del_comment(cmdlist)
+    
     return conf, avail_svrlist, svrsetlist ,DataSet(dataset), certidlist
 
-def setnatidentity(conf, server_list):
-    mtime = time.time()
+def set_nat_identity(conf, server_list):
+    '''
+    사용자 식별 기능을 사용하기 위한 프로시저
+    prepare() 과정에서 사용되며 서버 리스트와 보안계정 목록을 리턴함
+    '''
+    SSH_CODE = 4
+    SFTP_CODE = 22
+    MYSQL_PORT = 3306
     avail_svrlist = []
     # Cert ID 목록 가져오기
-    certidlist = getlistfromcsv(conf.dbsafer_certid_csv)
+    certidlist = get_list_from_csv(conf.dbsafer_certid_csv)
+    
+    if 'ssh' == conf.test_type:
+        test_type = SSH_CODE
+    elif 'sftp' == conf.test_type:
+        test_type = SFTP_CODE
+    else:
+        test_type = -1
+        return -1
+
     dbc = DBCtrl()
     dbc.connect(host = conf.dbsafer_log,
-                port = 3306,
+                port = MYSQL_PORT,
                 user = conf.dbsafer_dbid,
                 passwd = conf.dbsafer_dbpw,
                 db='dbsafer3')
-    svc_sel_qry = 'select no from \
+    
+    if conf.chk_svcnum:
+        svc_sel_qry = 'select no from \
                    dbsafer3.services where type=\"%s\"\
                    and destip=\"%s\" and destport=\"%s\"'
-    if 'ssh' == conf.test_type:
-        ttype = 4
-    elif 'sftp' == conf.test_type:
-        ttype = 22
+
+        print("Waiting for getting service number from the DBSAFER")
+
+        for sl in server_list:
+            dbc.cur.execute(svc_sel_qry%(test_type, sl[2], sl[3]))
+            for dbsvc in dbc.cur.fetchall():
+                #서버리스트 마지막 컬럼에 서비스 번호 입력
+                sl[6] = dbsvc[0]
+                avail_svrlist.append(sl)
+        
+        # server_list.csv파일에 서비스번호 추가
+        lines = get_server_list_csv(conf.server_list_csv)
+        f = open('test.csv','w')
+        for line in lines:
+            chk_flag = False
+            for sl in avail_svrlist:
+                if sl[2] == line[2] and \
+                sl[3] == line[3] and \
+                sl[1] == line[1]:
+                    print("DEBUG : ",sl)
+                    try:
+                        f.write(str(sl).strip("[]\'").replace('\'', '').replace(' ','') + '\n')
+                    except Exception as e:
+                        print(e,sl)
+                    chk_flag = True
+                    break
+            if False == chk_flag:
+                f.write(str(line).strip("[]\'").replace('\'', '').replace(' ','') + '\n')
+        f.close()
     else:
-        ttype = -1
-        return -1
-    print("Waiting for getting service number from the DBSAFER")
-    for sl in server_list:
-        dbc.cur.execute(svc_sel_qry%(ttype,sl[2],sl[3]))
-        for dbsvc in dbc.cur.fetchall():
-            #서버리스트 마지막 컬럼에 서비스 번호 입력
-            sl.append(dbsvc[0])
-            avail_svrlist.append(sl)
+        for sl in server_list:
+            pass
+        pass
+
     
     # dbsafer_ldap_list의 보안계정들에 대한 login 전부 1로 변경쿼리
     login_updt_qry = 'update dbsafer3.dbsafer_ldap_list '
     login_updt_qry += 'set login=1 where sno=\"%s\"'
     ldapip_updt_qry = 'update dbsafer3.dbsafer_ldap_list '
     ldapip_updt_qry += 'set ipaddr=\"%s\" where sno=\"%s\"'
+    
     # oms_access에 해당 IP가 없을때 Insert할 쿼리
     oms_sel_qry = 'select ip, unikey from dbsafer3.oms_access'
     oms_ins_qry = 'insert into dbsafer3.oms_access'
@@ -187,22 +238,31 @@ def setnatidentity(conf, server_list):
     dummymac = '00:00:00:00:00:00'
     dummyipv6 = '0000::0000:0000:0000:0000%64,'
     nowt = time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))
-    hash = gethash('TrollkingTester')
+    hash = get_hash('TrollkingTester')
     omsiplist = []
+    
+    # oms_access 테이블 select 쿼리
     dbc.cur.execute(oms_sel_qry)
+    
     for line in dbc.cur.fetchall():
         omsiplist.append(list(line))
+        
     for certid in certidlist:
         add_oms_flag = True
+        
         # dbsafer_ldap_list의 로그인 컬럼 업데이트
         dbc.cur.execute(login_updt_qry%certid[0])
+        
         # dbsafer_ldap_list의 ipaddr 컬럼 업데이트
         dbc.cur.execute(ldapip_updt_qry%(certid[1],certid[0]))
+        
         for line in omsiplist:
+            # line : oms_access ip, unikey list 
             if line[0] == certid[1] and line[1] == hash:
-                pass
-            else:
                 add_oms_flag = False
+                break
+            else:
+                add_oms_flag = True
         
         # oms_access에 레코드 추가하기
         if add_oms_flag == True:
@@ -211,19 +271,26 @@ def setnatidentity(conf, server_list):
                     'AMD rather than Intel!', '8192GB',certid[0],
                     1, conf.dbsafer_gw, nowt, hash)
             dbc.cur.execute(oms_ins_qry%values)
+            
     dbc.db.commit()
+    
     return avail_svrlist, certidlist
 
 def connect(term, conf, svr, usernatid=False, certid=None, dyport=None):
+    '''
+    테스트 수행에서 서비스에 접속하는 프로시저
+    '''
     if True == usernatid and certid != None and dyport != None:
         natidpkt = NATIDPKT()
-        natidpkt.set(svcnum=svr[6],
+        natidpkt.set(svcnum = svr[6],
                     tgip = svr[2],
                     tgport = int(svr[3]),
-                    certid = certid,
+                    certid = certid[0],
                     gwip = conf.dbsafer_gw,
                     gwport = dyport,
+                    loip = certid[1]
                     )
+        
         temp = term.connect(svr[1], conf.dbsafer_gw, dyport, 
                             svr[4],svr[5], ifc = conf.bind_interface,
                             usenatid = True, natidpkt = natidpkt)
@@ -232,15 +299,15 @@ def connect(term, conf, svr, usernatid=False, certid=None, dyport=None):
                             ifc = conf.bind_interface,
                             usenatid = False,
                             natidpkt = None)
-    if conf.test_type in ['ssh','telnet']:
-        ret = dist_client(temp, conf.ssh_cmd_func)
-    elif conf.test_type in ['sftp', 'ftp']:
-        ret = dist_ftpcli(temp, conf.test_type)
-    else:
-        return -1
+    
+    ret = dist_client(temp, conf)
+    
     return ret
     
 def runcmd(runner, client, cmdlines):
+    '''
+    테스트 수행에서 명령어 수행 프로시저
+    '''
     result = [0,0]
     for cmdline in cmdlines:
         if len(cmdline) < 2:
@@ -259,36 +326,48 @@ def runcmd(runner, client, cmdlines):
     return result
 
 def runft(runner, client, dataset, sessid=''):
+    '''
+    테스트 수행에서 파일전송 프로시저
+    '''
     result = [0,0]
+    FNAME = 0; SRCPATH = 1; RMTPATH = 2; LOCPATH = 3; HASH = 4
     for row in dataset:
-        upload = row[1] + os.sep + row[0]
-        remote = row[2] + os.sep + row[0] + '-' + sessid
-        download = row[3] + os.sep + row[0] + '-' + sessid
+        upload = row[SRCPATH] + os.sep + row[FNAME]
+        remote = row[RMTPATH] + os.sep + row[FNAME] + '-' + sessid
+        download = row[LOCPATH] + os.sep + row[FNAME] + '-' + sessid
         putret = runner.putfile(client, upload, remote)
         getret = runner.getfile(client, remote, download)
+
         #결과 검증1
+        r1 = False
+        r2 = False
         c1 = -1 < putret and -1 < getret
         if c1:
             r1 = True
-        else:
-            r1 = False
+        
         #결과 검증2
         hash = None
         try:
-            hash = getfilehash(download)
+            hash = get_file_hash(download)
         except Exception as e:
             print(e)
-        if hash == row[4]:
+        
+        if hash == row[HASH]:
             r2 = True
-        else:
-            r2 = False
+       
         if True == r1 and True == r2:
             result[0] += 2
         else:
             result[1] += 2
+
     return result
     
 def measure_session(slist, dataset, sig):
+    '''
+    테스트 중간에 세션을 생성하고 명령어/파일 전송 시간을 측정
+    '''
+    EXPIRE_CNT = 300
+    GET_QUEUE_TIMEOUT = 5
     # 측정 여부 확인해서 주기적으로 성능 측정
     tq = mp.Queue()
     tconf = ConfSet(CONF_FILE)
@@ -299,6 +378,8 @@ def measure_session(slist, dataset, sig):
     tconf.repeat_count = len(dataset.dataset)
     tconf.session_delay = 0
     tconf.cmd_delay = 0
+    timeoutcnt = 0
+    
     while True:
         if 2 == sig.value :
             break
@@ -316,45 +397,51 @@ def measure_session(slist, dataset, sig):
             proc.join()
 
         while False == tq.empty():
-            tmp = tq.get(block=False, timeout=5)
+            tmp = tq.get(block=False, timeout=GET_QUEUE_TIMEOUT)
             if dict == type(tmp):
                 tresult[int(tmp['psn'])][3] = float(tmp['ftime']) - float(tmp['stime'])
+                timeoutcnt = 0
         
         for tr in tresult:
             print(tr)
         print('\n')
         time.sleep(tconf.measure_delay)
+        
+        timeoutcnt += 1
+        if timeoutcnt >= EXPIRE_CNT:
+            break
 
-def dist_ftpcli(client, test_type):
-    if int == type(client) :
-        return -1
-    elif tuple == type(client) and 'sftp' == test_type.lower():
-        return client[2]
-    elif fl.FTP == type(client) and 'ftp' == test_type.lower() :
-        return client
-    else:
+def dist_client(client, conf):
+    '''
+    [To do] dist_client와 ftpcli와 합쳐서 구현 어짜피 동일한 내용이므로...
+    '''
+    if int == type(client):
         return -1
 
-def dist_client(client, ssh_cmd_func):
-    c1 = tl.Telnet == type(client)
-    c2 = type(client) == tuple and 3 == len(client)
-    c5 = 'runcmdshell' == ssh_cmd_func 
-    c6 = 'runcmd' == ssh_cmd_func
-    if c1:
+    if fl.FTP == type(client) and 'ftp' == conf.test_type:
         return client
-    elif c2:
-        c3 = type(client[0]) == pm.client.SSHClient
-        c4 = type(client[1]) == pm.channel.Channel
-        if c3 and c4 and c6:
+
+    if tl.Telnet == type(client) and 'telnet' == conf.test_type:
+        return client
+    
+    if type(client) == tuple and 2 == len(client):
+        c1 = type(client[0]) == pm.client.SSHClient
+        c2 = type(client[1]) == pm.channel.Channel
+        c3 = type(client[1]) == pm.SFTPClient
+        c4 = 'ssh' == conf.test_type
+        c5 = 'sftp' == conf.test_type
+        if c1 and c4 and conf.ssh_invoke_sh == False:
             return client[0]
-        elif c3 and c4 and c5:
+        if c2 and c4 and conf.ssh_invoke_sh == True:
             return client[1]
-        else:
-            return -1
-    else:
-        return -1
+        if c3 and c5:
+            return client[1]
+    return -1
 
-def showbasicconf(conf, svrsetlist, dataset):
+def show_basic_conf(conf, svrsetlist, dataset):
+    '''
+    기본 설정을 출력함
+    '''
     scnt = 0
     row2 = '\n'+'{0:^25}'.format('[ Test Processes ]') + '\n\n'
     header = '{0:<15}'.format('Server Name')
@@ -380,7 +467,10 @@ def showbasicconf(conf, svrsetlist, dataset):
     print(row1)
     print(row2)
 
-def showresult(result):
+def show_result(result):
+    '''
+    테스트 결과를 출력함
+    '''
     totsvr = 0
     totses = 0
     totsesok = 0
@@ -444,7 +534,7 @@ def showresult(result):
 
 def run_test(conf, slist, svrsetlist, dataset, certidlist=None):
     # 기본 설정 출력 부분
-    showbasicconf(conf, svrsetlist, dataset)
+    show_basic_conf(conf, svrsetlist, dataset)
     procs = []
     result = []
     # 부모 -> 자식 시그널용 공유메모리 
@@ -499,6 +589,9 @@ def run_test(conf, slist, svrsetlist, dataset, certidlist=None):
     return result, (stime, ftime)
 
 def tester(conf, svrset, dataset, psn, sig = None, rq = None, certidlist=None):
+    '''
+    테스트 프로세스 구현부
+    '''
     if len(svrset.slist) == 0:
         print('Server set not exist')
         return 0
@@ -516,8 +609,8 @@ def tester(conf, svrset, dataset, psn, sig = None, rq = None, certidlist=None):
     r.svrcnt = len(svrset.slist)
     clients = []
     if True == conf.use_nat_identity and certidlist != None:
-        certidrpt = repeater(certidlist)
-        dyportrpt = repeater(conf.dynamic_port)
+        certidrt = rotator(certidlist)
+        dyportrt = rotator(conf.dynamic_port)
 
     #세션 지속하고 명령어만 반복
     r.stime = time.time()
@@ -527,14 +620,14 @@ def tester(conf, svrset, dataset, psn, sig = None, rq = None, certidlist=None):
         for sc in range(int(svrset.sess_cnt/len(svrset.slist))):
             for svr in svrset.slist:
                 if True == conf.use_nat_identity and certidlist != None:
-                    certid = next(certidrpt)
-                    dyport = next(dyportrpt)
+                    certid = next(certidrt)
+                    dyport = next(dyportrt)
                 else:
                     certid = None
                     dyport = None
                 client = connect(term, conf, svr, 
                                  usernatid = conf.use_nat_identity,
-                                 certid = certid[0],
+                                 certid = certid,
                                  dyport = dyport)
                 r.totses += 1
                 if client != -1:
@@ -545,7 +638,7 @@ def tester(conf, svrset, dataset, psn, sig = None, rq = None, certidlist=None):
                 time.sleep(conf.session_delay)
                 c1 = 'telnet' == conf.test_type
                 c2 = 'ssh' == conf.test_type
-                c3 = 'runcmdshell' == conf.ssh_cmd_func 
+                c3 = True == conf.ssh_invoke_sh 
                 if c1 or (c2 and c3) :
                     runner.waitrecv(client)
                 clients.append(client)
@@ -590,17 +683,17 @@ def tester(conf, svrset, dataset, psn, sig = None, rq = None, certidlist=None):
         for client in clients:
             client.close()
     else:
-        svrrpt = repeater(svrset.slist)
+        svrrt = rotator(svrset.slist)
         while True:
             # 접속
-            svr = next(svrrpt)
+            svr = next(svrrt)
             if True == conf.use_nat_identity and certidlist != None:
-                certid = next(certidrpt)
+                certid = next(certidrt)
             else:
                 certid = None
             client = connect(term, conf, svr, 
                              usernatid = conf.use_nat_identity,
-                             certid = certid[0])
+                             certid = certid)
             r.totses += 1
             if client != -1:
                 r.sesok += 1
@@ -641,4 +734,4 @@ if __name__ == '__main__':
     result = run_test(conf, slist, svrsetlist, dataset, certidlist)
 
     # 결과 출력
-    showresult(result)
+    show_result(result)

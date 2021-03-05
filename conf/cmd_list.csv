@@ -1,5 +1,5 @@
-#Command, patter for verification
-#whoami, root
-#top,???
-echo a >> /home/trolltest.txt,
-whoami, root
+#Command or Command list file name, patter for verification, Delay between Commands(float sec)
+#whoami, root   #example one command
+#@conf/cmds-01.txt,???        #example command list file
+echo a >> /home/trolltest.txt,,0
+whoami, root,0
