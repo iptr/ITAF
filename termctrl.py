@@ -155,7 +155,7 @@ class TermCtrl:
         #self.setserverlist()
         
     def set_server_list(self):
-        slist = getsvrlistcsv(self.conf['File']['server_list_file'])
+        slist = get_server_list_csv(self.conf['File']['server_list_file'])
         for row in slist:
             for i,col in enumerate(self.cols[:-1]):
                 try:
@@ -194,8 +194,7 @@ class TermCtrl:
         elif proto == 'ftp':
             client = fl.FTP()
             try:
-                client.connect(host, int(port), int(timeout),
-                               source_address=sip)
+                client.connect(host, int(port), int(timeout))
                 client.login(user, passwd)
             except Exception as e:
                 self.lgr.error(e)
