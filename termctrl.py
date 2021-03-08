@@ -24,8 +24,8 @@ class NATIDPKT:
     targetport = b''
     gwip = IPv4Address('0.0.0.0').packed
     gwport = pack('>H',0)
-    certidlen = pack('>H',9)  
-    certid = b'trollking'
+    cert_id_len = pack('>H',9)  
+    cert_id = b'trollking'
     proglen = pack('>H',11)
     progname = b'trolltester'
     assistkeylen = pack('>H',0)
@@ -41,7 +41,7 @@ class NATIDPKT:
         pass
 
     def set(self, svcnum=b'', tgip=b'', tgport=b'', gwip=b'', 
-            gwport=b'', certid=b'', loip=b'', loport=b''):
+            gwport=b'', cert_id=b'', loip=b'', loport=b''):
         # 필수정보 교체: 대상서비스번호, 대상IP, port, 로컬IP, 로컬port, dbsIP, dbsport, 
         #               보안계정)
         if loip != b'':
@@ -58,20 +58,20 @@ class NATIDPKT:
             self.gwip = IPv4Address(gwip).packed
         if gwport != b'':
             self.gwport = pack('>H',int(gwport))
-        if certid != b'':
+        if cert_id != b'':
             try:
-                self.certid = certid.encode()
+                self.cert_id = cert_id.encode()
             except Exception as e:
-                print('debug : %s, %s'%(e,certid))
+                print('debug : %s, %s'%(e,cert_id))
         self.assistkey = get_hash('TrollkingTester').encode()
         # 가변 길이 입력
-        self.certidlen = pack('>H',len(self.certid))
+        self.cert_id_len = pack('>H',len(self.cert_id))
         self.assistkeylen = pack('>H',len(self.assistkey))
 
         # 전체 길이 계산(encrypt ~ 끝까지)
         payload = self.encrypt + self.svctype + self.rdplog + self.svcnum
         payload += self.localip + self.localport + self.targetip + self.targetport
-        payload += self.gwip + self.gwport + self.certidlen + self.certid
+        payload += self.gwip + self.gwport + self.cert_id_len + self.cert_id
         payload += self.proglen + self.progname + self.assistkeylen + self.assistkey
         payload += self.proghashlen + self.proghash + self.webassist + self.ostype + self.msgtunnel
         self.totlen = pack('>H', len(payload))
@@ -91,8 +91,8 @@ class NATIDPKT:
         print("tgPort : ",self.targetport)
         print("gw  IP : ",self.gwip)
         print("gwPort : ",self.gwport)
-        print("Crtlen : ",self.certidlen)
-        print("CertID : ",self.certid)
+        print("Crtlen : ",self.cert_id_len)
+        print("CertID : ",self.cert_id)
         print("Prolen : ",self.proglen)
         print("pronam : ",self.progname)
         print("keylen : ",self.assistkeylen)
@@ -125,7 +125,6 @@ class NATIDPKT:
             idx += seg
 
         
-
 class TermCtrl:
     """
     Telnet,FTP, SSH프로토콜을 사용하여 대상서버에서 작업하는 클래스
@@ -155,7 +154,7 @@ class TermCtrl:
         #self.setserverlist()
         
     def set_server_list(self):
-        slist = get_server_list_csv(self.conf['File']['server_list_file'])
+        slist = getsvrlistcsv(self.conf['File']['server_list_file'])
         for row in slist:
             for i,col in enumerate(self.cols[:-1]):
                 try:
@@ -194,7 +193,8 @@ class TermCtrl:
         elif proto == 'ftp':
             client = fl.FTP()
             try:
-                client.connect(host, int(port), int(timeout))
+                client.connect(host, int(port), int(timeout),
+                               source_address=sip)
                 client.login(user, passwd)
             except Exception as e:
                 self.lgr.error(e)

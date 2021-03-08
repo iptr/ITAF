@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 import time
+import copy
+import random
 import multiprocessing as mp
 from termctrl import *
 from dbctrl import *
@@ -22,14 +24,14 @@ class ConfSet:
             print('Config Error')
             return -1
         self.use_nat_identity = conf['DBSAFER']['use_nat_identity'].lower() == STR_TRUE
-        self.dbsafer_certid_csv = conf['DBSAFER']['dbsafer_certid_csv']
+        self.dbsafer_cert_id_csv = conf['DBSAFER']['dbsafer_cert_id_csv']
         self.dbsafer_gw = conf['DBSAFER']['dbsafer_gw']
         self.dbsafer_log = conf['DBSAFER']['dbsafer_log']
         tmp = conf['DBSAFER']['dynamic_port']
         if -1 < tmp.find('~'):
             self.dynamic_port = list(range(int(tmp.split('~')[0]), int(tmp.split('~')[1])))
         else:
-            self.dynamic_port = [None]
+            self.dynamic_port = [int(tmp)]
         self.dbsafer_dbid = conf['DBSAFER']['dbsafer_dbid']
         self.dbsafer_dbpw = conf['DBSAFER']['dbsafer_dbpw']
         self.chk_svcnum = conf['DBSAFER']['chk_svcnum'].lower() == STR_TRUE 
@@ -56,6 +58,12 @@ class ConfSet:
         del conf
 
 class DataSet:
+    '''
+    Data Set for CMD(Command)/FT(File Transfer) test
+    CMD Set Cols : Command / Expected Result / Delay Time(sec)
+    FT Set Cols: Filename / Source Path / Remote Path / Local Path
+            File hash / Delay time(sec)
+    '''
     dataset = []
 
     def __init__(self, dataset):
@@ -63,11 +71,16 @@ class DataSet:
         del dataset
 
 class ServerSet:
-    slist = []
+    '''
+    Server list set for Test
+    Cols : Server name / Protocol Type / IP Address / Port
+    / UserID / Password / DBSAFER Service Number
+    '''
+    svr_list = []
     sess_cnt = 0  
 
     def __init__(self, server_list, sess_cnt):
-        self.slist = server_list
+        self.svr_list = server_list
         self.sess_cnt = sess_cnt
         del server_list
         del sess_cnt
@@ -92,7 +105,7 @@ def chk_config(conf):
 def prepare():
     """
     테스트 준비 과정
-    Returns : conf, avail_svrlist, svrsetlist ,DataSet(dataset), certidlist
+    Returns : conf, avail_svrlist, svr_set_list ,DataSet(dataset), cert_id_list
     """
     avail_svrlist = [] 
     conf = ConfSet(CONF_FILE)
@@ -109,40 +122,45 @@ def prepare():
 
     # 사용자 식별 사용여부에 따라 DBSAFER서버리스트 가져오기
     if True == conf.use_nat_identity:
-        avail_svrlist, certidlist = set_nat_identity(conf, server_list)
+        avail_svrlist, cert_id_list = set_nat_identity(conf, server_list)
     else:
         # 파일 서버 목록에서 서비스 테스트 타입과 동일한 서비스 타입의 서비스만 추림
         for sl in server_list:
             if sl[1].lower() == conf.svc_type:
                 avail_svrlist.append(sl)
-        certidlist = None
+        cert_id_list = None
 
     # 프로세스별 서버리스트 및 세션개수 정리
     totses = len(avail_svrlist) * conf.session_count
     svrcnt = len(avail_svrlist)
 
+    # 서버개수 * 세션개수보다 프로세스 개수가 클 경우
     if conf.proc_count > svrcnt:
+        # 프로세스 개수 줄임
         if conf.proc_count > totses:
             conf.proc_count = totses
+        # 세션을 서버 단위로 나눔
         avail_svrlist *= int(conf.proc_count / svrcnt)
         avail_svrlist += avail_svrlist[0:int(conf.proc_count % svrcnt)]
+        # 서버단위 세션 개수를 프로세스에 나누어 담았다면
         sflag = True
     else:
         sflag = False
-    svrsetlist = [ServerSet([],0) for i in range(conf.proc_count)]
+
+    svr_set_list = [ServerSet([],0) for i in range(conf.proc_count)]
     cntrt = rotator(range(conf.proc_count))
     
     for svr in avail_svrlist:
-        svrsetlist[next(cntrt)].slist.append(svr)
+        svr_set_list[next(cntrt)].svr_list.append(svr)
 
     # 프로세스별 세션 개수 입력
     for i in range(conf.proc_count):
         if sflag:
-            svrsetlist[i].sess_cnt = int(totses / conf.proc_count)
+            svr_set_list[i].sess_cnt = int(totses / conf.proc_count)
             if i < int(totses % conf.proc_count):
-                svrsetlist[i].sess_cnt += int(totses / conf.proc_count)
+                svr_set_list[i].sess_cnt += int(totses / conf.proc_count)
         else:
-            svrsetlist[i].sess_cnt = conf.session_count * len(svrsetlist[i].slist)
+            svr_set_list[i].sess_cnt = conf.session_count * len(svr_set_list[i].svr_list)
 
     # 명령어와 예상결과값 또는 파일명 및 파일 해쉬값 같은 테스트 필요 데이터세트 설정
     dataset = []
@@ -154,7 +172,7 @@ def prepare():
     # 샵 주석 제거된 리스트
     dataset = del_comment(cmdlist)
     
-    return conf, avail_svrlist, svrsetlist ,DataSet(dataset), certidlist
+    return conf, avail_svrlist, svr_set_list ,DataSet(dataset), cert_id_list
 
 def set_nat_identity(conf, server_list):
     '''
@@ -166,7 +184,7 @@ def set_nat_identity(conf, server_list):
     MYSQL_PORT = 3306
     avail_svrlist = []
     # Cert ID 목록 가져오기
-    certidlist = get_list_from_csv(conf.dbsafer_certid_csv)
+    cert_id_list = get_list_from_csv(conf.dbsafer_cert_id_csv)
     
     if 'ssh' == conf.test_type:
         test_type = SSH_CODE
@@ -199,7 +217,7 @@ def set_nat_identity(conf, server_list):
         
         # server_list.csv파일에 서비스번호 추가
         lines = get_server_list_csv(conf.server_list_csv)
-        f = open('test.csv','w')
+        f = open(conf.server_list_csv + '.withDBSSVCNUM','w')
         for line in lines:
             chk_flag = False
             for sl in avail_svrlist:
@@ -218,7 +236,8 @@ def set_nat_identity(conf, server_list):
         f.close()
     else:
         for sl in server_list:
-            pass
+
+            avail_svrlist.append(sl)
         pass
 
     
@@ -247,18 +266,18 @@ def set_nat_identity(conf, server_list):
     for line in dbc.cur.fetchall():
         omsiplist.append(list(line))
         
-    for certid in certidlist:
+    for cert_id in cert_id_list:
         add_oms_flag = True
         
         # dbsafer_ldap_list의 로그인 컬럼 업데이트
-        dbc.cur.execute(login_updt_qry%certid[0])
+        dbc.cur.execute(login_updt_qry%cert_id[0])
         
         # dbsafer_ldap_list의 ipaddr 컬럼 업데이트
-        dbc.cur.execute(ldapip_updt_qry%(certid[1],certid[0]))
+        dbc.cur.execute(ldapip_updt_qry%(cert_id[1],cert_id[0]))
         
         for line in omsiplist:
             # line : oms_access ip, unikey list 
-            if line[0] == certid[1] and line[1] == hash:
+            if line[0] == cert_id[1] and line[1] == hash:
                 add_oms_flag = False
                 break
             else:
@@ -266,29 +285,29 @@ def set_nat_identity(conf, server_list):
         
         # oms_access에 레코드 추가하기
         if add_oms_flag == True:
-            values = (certid[1], dummymac, dummyipv6+certid[1], 1,
+            values = (cert_id[1], dummymac, dummyipv6+cert_id[1], 1,
                     '9.9.99.9T', 'TrollkingsTester',
-                    'AMD rather than Intel!', '8192GB',certid[0],
+                    'AMD rather than Intel!', '8192GB',cert_id[0],
                     1, conf.dbsafer_gw, nowt, hash)
             dbc.cur.execute(oms_ins_qry%values)
             
     dbc.db.commit()
     
-    return avail_svrlist, certidlist
+    return avail_svrlist, cert_id_list
 
-def connect(term, conf, svr, usernatid=False, certid=None, dyport=None):
+def connect(term, conf, svr, use_nat_id=False, cert_id=None, dyport=None):
     '''
     테스트 수행에서 서비스에 접속하는 프로시저
     '''
-    if True == usernatid and certid != None and dyport != None:
+    if True == use_nat_id and cert_id != None and dyport != None:
         natidpkt = NATIDPKT()
         natidpkt.set(svcnum = svr[6],
                     tgip = svr[2],
                     tgport = int(svr[3]),
-                    certid = certid[0],
+                    cert_id = cert_id[0],
                     gwip = conf.dbsafer_gw,
                     gwport = dyport,
-                    loip = certid[1]
+                    loip = cert_id[1]
                     )
         
         temp = term.connect(svr[1], conf.dbsafer_gw, dyport, 
@@ -362,7 +381,7 @@ def runft(runner, client, dataset, sessid=''):
 
     return result
     
-def measure_session(slist, dataset, sig):
+def measure_session(svr_list, dataset, sig):
     '''
     테스트 중간에 세션을 생성하고 명령어/파일 전송 시간을 측정
     '''
@@ -381,15 +400,15 @@ def measure_session(slist, dataset, sig):
     timeoutcnt = 0
     
     while True:
-        if 2 == sig.value :
+        if 2 == signal.value :
             break
         tprocs = []
         tresult = []
-        for i,sl in enumerate(slist):
+        for i,sl in enumerate(svr_list):
             tresult.append([sl[0],sl[1],str(sl[2]+':'+sl[3]), 0])
-            svrset = ServerSet([sl], 1)
+            svr_set = ServerSet([sl], 1)
             proc = mp.Process(target=tester, 
-                            args=(tconf, svrset, dataset, i, sig, tq))
+                            args=(tconf, svr_set, dataset, i, signal, tq))
             proc.start()
             tprocs.append(proc)
 
@@ -438,7 +457,7 @@ def dist_client(client, conf):
             return client[1]
     return -1
 
-def show_basic_conf(conf, svrsetlist, dataset):
+def show_basic_conf(conf, svr_set_list, dataset):
     '''
     기본 설정을 출력함
     '''
@@ -447,10 +466,10 @@ def show_basic_conf(conf, svrsetlist, dataset):
     header = '{0:<15}'.format('Server Name')
     header += '{0:^8}'.format('SVC')
     header += '{0:^20}'.format('IP Address:Port')
-    for i, ss in enumerate(svrsetlist):
+    for i, ss in enumerate(svr_set_list):
         row2 += 'Test Process #%s ( %s Sessions )\n'%(i,ss.sess_cnt)
         row2 += header + '\n'
-        for sl in ss.slist:
+        for sl in ss.svr_list:
             scnt += 1 
             row = '{0:^15}'.format(sl[0])
             row += '{0:^8}'.format(sl[1])
@@ -532,20 +551,23 @@ def show_result(result):
     row += 'Running Time : %.2fS\n'%(ftime - stime)
     print(row)
 
-def run_test(conf, slist, svrsetlist, dataset, certidlist=None):
+def run_test(conf, svr_list, svr_set_list, dataset, cert_id_list=None):
     # 기본 설정 출력 부분
-    show_basic_conf(conf, svrsetlist, dataset)
+    show_basic_conf(conf, svr_set_list, dataset)
     procs = []
     result = []
     # 부모 -> 자식 시그널용 공유메모리 
     # 0: 초기 정지 상태, 1: 시작, 2:종료
-    sig = mp.Value('d',0)
+    signal = mp.Value('d',0)
     # 자식 -> 부모 결과 전달용 큐
     rq = mp.Queue()
     stime = time.time()
-    for psn, sl in enumerate(svrsetlist):
+    tmpconf = copy.deepcopy(conf)
+    dyport_rotator = rotator(conf.dynamic_port)
+    for psn, sl in enumerate(svr_set_list):
+        tmpconf.dynamic_port = [next(dyport_rotator)]
         proc = mp.Process(target=tester, 
-                          args=(conf, sl, dataset, psn, sig, rq, certidlist))
+                          args=(tmpconf, sl, dataset, psn, signal, rq, cert_id_list))
         procs.append(proc)
         proc.start()
         time.sleep(conf.proc_delay)
@@ -567,11 +589,13 @@ def run_test(conf, slist, svrsetlist, dataset, certidlist=None):
 
     if True == conf.start_after_deploy:
         input('\n\n###### Press any key for starting... ######')
-    sig.value = 1
+    signal.value = 1
 
     #중간에 세션 명령어 소요시간 측정
     if True == conf.measure:
-        proc = mp.Process(target=measure_session,args=(slist[:1], dataset, sig))
+        proc = mp.Process(target=measure_session,
+                          args=(random.choice(svr_list), 
+                          dataset, sig))
         proc.start()
         procs.append(proc)
     
@@ -582,17 +606,17 @@ def run_test(conf, slist, svrsetlist, dataset, certidlist=None):
             if Result == type(buf):
                 result.append(buf)
     
-    sig.value = 2
+    signal.value = 2
     for proc in procs:
         proc.join()
     ftime = time.time()
     return result, (stime, ftime)
 
-def tester(conf, svrset, dataset, psn, sig = None, rq = None, certidlist=None):
+def tester(conf, svr_set, dataset, psn, signal = None, rq = None, cert_id_list=None):
     '''
     테스트 프로세스 구현부
     '''
-    if len(svrset.slist) == 0:
+    if len(svr_set.svr_list) == 0:
         print('Server set not exist')
         return 0
     term = TermCtrl()
@@ -606,28 +630,28 @@ def tester(conf, svrset, dataset, psn, sig = None, rq = None, certidlist=None):
 
     r = Result()
     r.psn = psn
-    r.svrcnt = len(svrset.slist)
+    r.svrcnt = len(svr_set.svr_list)
     clients = []
-    if True == conf.use_nat_identity and certidlist != None:
-        certidrt = rotator(certidlist)
-        dyportrt = rotator(conf.dynamic_port)
+    if True == conf.use_nat_identity and cert_id_list != None:
+        cert_id_rotator = rotator(cert_id_list)
+        dyport_rotator = rotator(conf.dynamic_port)
 
     #세션 지속하고 명령어만 반복
     r.stime = time.time()
     if True == conf.persist_session:
         # 접속
         print("Proc #%s : Start Connecting"%(psn))
-        for sc in range(int(svrset.sess_cnt/len(svrset.slist))):
-            for svr in svrset.slist:
-                if True == conf.use_nat_identity and certidlist != None:
-                    certid = next(certidrt)
-                    dyport = next(dyportrt)
+        for sc in range(int(svr_set.sess_cnt/len(svr_set.svr_list))):
+            for svr in svr_set.svr_list:
+                if True == conf.use_nat_identity and cert_id_list != None:
+                    cert_id = next(cert_id_rotator)
+                    dyport = next(dyport_rotator)
                 else:
-                    certid = None
+                    cert_id = None
                     dyport = None
                 client = connect(term, conf, svr, 
-                                 usernatid = conf.use_nat_identity,
-                                 certid = certid,
+                                 use_nat_id = conf.use_nat_identity,
+                                 cert_id = cert_id,
                                  dyport = dyport)
                 r.totses += 1
                 if client != -1:
@@ -648,11 +672,11 @@ def tester(conf, svrset, dataset, psn, sig = None, rq = None, certidlist=None):
         # 시작시그널이 올때까지 대기
         print("Proc #%s : Waiting for Start signal"%psn)
         while True:
-            if 0 == sig.value:
+            if 0 == signal.value:
                 time.sleep(0.5)
-            elif 1 == sig.value:
+            elif 1 == signal.value:
                 break
-            elif 2 == sig.value:
+            elif 2 == signal.value:
                 return 0
             else:
                 return -1
@@ -683,17 +707,17 @@ def tester(conf, svrset, dataset, psn, sig = None, rq = None, certidlist=None):
         for client in clients:
             client.close()
     else:
-        svrrt = rotator(svrset.slist)
+        svrrt = rotator(svr_set.svr_list)
         while True:
             # 접속
             svr = next(svrrt)
-            if True == conf.use_nat_identity and certidlist != None:
-                certid = next(certidrt)
+            if True == conf.use_nat_identity and cert_id_list != None:
+                cert_id = next(cert_id_rotator)
             else:
-                certid = None
+                cert_id = None
             client = connect(term, conf, svr, 
-                             usernatid = conf.use_nat_identity,
-                             certid = certid)
+                             use_nat_id = conf.use_nat_identity,
+                             cert_id = cert_id)
             r.totses += 1
             if client != -1:
                 r.sesok += 1
@@ -728,10 +752,10 @@ def tester(conf, svrset, dataset, psn, sig = None, rq = None, certidlist=None):
 
 if __name__ == '__main__':
     # 테스트 준비
-    conf, slist, svrsetlist, dataset, certidlist = prepare()
+    conf, svr_list, svr_set_list, dataset, cert_id_list = prepare()
     
     # 테스트 실행
-    result = run_test(conf, slist, svrsetlist, dataset, certidlist)
+    result = run_test(conf, svr_list, svr_set_list, dataset, cert_id_list)
 
     # 결과 출력
     show_result(result)
