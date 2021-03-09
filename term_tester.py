@@ -381,7 +381,7 @@ def runft(runner, client, dataset, sessid=''):
 
     return result
     
-def measure_session(svr_list, dataset, sig):
+def measure_session(svr_list, dataset, signal):
     '''
     테스트 중간에 세션을 생성하고 명령어/파일 전송 시간을 측정
     '''
@@ -595,7 +595,7 @@ def run_test(conf, svr_list, svr_set_list, dataset, cert_id_list=None):
     if True == conf.measure:
         proc = mp.Process(target=measure_session,
                           args=(random.choice(svr_list), 
-                          dataset, sig))
+                          dataset, signal))
         proc.start()
         procs.append(proc)
     
