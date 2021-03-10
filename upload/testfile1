@@ -31,7 +31,7 @@ class TermCtrl:
 
     def configure(self):
         # 기본 설정 불러오기
-        self.conf = getfileconf(CONF_PATH)
+        self.conf = get_fileconf(CONF_PATH)
         conf = self.conf
         # 데이터 프레임 생성
         columns = conf['Tables']['server_list_cols'].split(',')
@@ -44,7 +44,7 @@ class TermCtrl:
         # 설정을 DB에서 가져오기일 경우
         conf = self.conf
         if conf['Common']['cfgtype'].lower() == 'db':
-            result = getsvrlistdb()
+            result = getserverlistdb()
             if result != -1:
                 self.lgr.error('DB Connection failed')
             else:
@@ -54,7 +54,7 @@ class TermCtrl:
             
         # 설정을 File에서 가져오기일 경우
         elif conf['Common']['cfgtype'].lower() == 'file':
-            slist = getsvrlistcsv(conf['File']['server_list_file'])
+            slist = getserverlistcsv(conf['File']['server_list_file'])
             for row in slist:
                 row.append('')
                 self.cinf.loc[len(self.cinf)] = row
@@ -64,7 +64,7 @@ class TermCtrl:
             return -1
         self.cinf = self.cinf.astype({'port': int})
 
-    def waitrecv(self, client, waitcount=3, decoding=False):
+    def wait_recv(self, client, waitcount=3, decoding=False):
         """ Waiting for receiving the result of telnet command 
 
         Args:
@@ -141,7 +141,7 @@ class TermCtrl:
                 client.write(user.encode() + b'\n')
                 client.read_until(b'Password:')
                 client.write(passwd.encode() + b'\n')
-                self.waitrecv(client)
+                self.wait_recv(client)
             except Exception as e:
                 self.lgr.error(e)
                 return -1
@@ -160,7 +160,7 @@ class TermCtrl:
                 client.connect(host, port=int(port), username=user,
                                password=passwd, timeout=int(timeout))
                 sh = client.invoke_shell()
-                self.waitrecv(sh)
+                self.wait_recv(sh)
                 sftp = pm.SFTPClient.from_transport(client.get_transport())
             except Exception as e:
                 self.lgr.error(e)
@@ -171,7 +171,7 @@ class TermCtrl:
             return -1
         return client
     
-    def connectlist(self, cno = None):
+    def connect_list(self, cno = None):
         """ 
         cinf 서버 목록의 일부 또는 전체 서버에 접속을 시도하고 
         cinf에 접속 객체를 갱신함
@@ -195,10 +195,10 @@ class TermCtrl:
                                                 str(ci['userid'][rc]), 
                                                 str(ci['passwd'][rc]))
 
-    def showclients(self):
+    def show_clients(self):
         print(self.cinf)
 
-    def runcmd(self, client, cmd):
+    def run_cmd(self, client, cmd):
         '''
         단일 명령어 실행. for only SSH
         :param client : paramko SSH Client object 
@@ -242,7 +242,7 @@ class TermCtrl:
             return -1    
         return dict_ret
     
-    def runcmdshell(self, client, cmdlines):
+    def run_cmdshell(self, client, cmdlines):
         """세션을 유지한 쉘에서 명령어를 수행함
 
         Args:
@@ -254,7 +254,7 @@ class TermCtrl:
         """
         dict_ret = {'cmd': cmdlines, 'recv':[]}
         for cmd in cmdlines:
-            buf = self.waitrecv(client)
+            buf = self.wait_recv(client)
             if type(client) == tl.Telnet:
                 client.write(cmd.encode() + b'\n')
             elif type(client) == pm.channel.Channel:
@@ -262,7 +262,7 @@ class TermCtrl:
             else:
                 self.lgr.error('Client is not available')
                 return -1
-            buf = self.waitrecv(client)
+            buf = self.wait_recv(client)
             if buf == '':
                 dict_ret['recv'].append('')
             else:
@@ -271,7 +271,7 @@ class TermCtrl:
         return dict_ret
         
 
-    def getfileslist(self, path, client=None):
+    def get_fileslist(self, path, client=None):
         '''
         path에 해당되는 디렉토리내 모든 파일 및 디렉토리 목록을 리턴한다.
         client를 입력받을 경우 원격지의 path에 대해서 수행한다.
@@ -281,7 +281,7 @@ class TermCtrl:
         flist = []
         if client != None:
             cmd = "file `find %s`|grep -v directory" % path
-            ret = self.runcmd(client, cmd)
+            ret = self.run_cmd(client, cmd)
             if len(ret['stdout'][0]) > 0:
                 for line in ret['stdout'][0]:
                     flist.append(line.strip(':')[0])
@@ -291,7 +291,7 @@ class TermCtrl:
                     flist.append(dpath + os.sep + fn)
         return flist
 
-    def getlocalpath(self, path):
+    def getlocal_path(self, path):
         '''
         path가 존재하는지 파일인지 디렉토리인지 확인하고 디렉토리일경우 디렉토리 하위의 모든 파일들을 리턴한다.
         path의 파일명에 와일드카드(*,?)가 존재할경우 다수의 파일목록을 리턴한다.
@@ -301,7 +301,7 @@ class TermCtrl:
         bname = os.path.basename(path)
         # Check whether the path is a directory
         if os.path.isdir(path):
-            flist = self.getfileslist(path)
+            flist = self.get_fileslist(path)
             return flist
 
         # whether path is a file
@@ -331,7 +331,7 @@ class TermCtrl:
                 if re.fullmatch(patt, fn) != None:
                     tmppath = dname + os.sep + fn
                     if os.path.isdir(tmppath):
-                        flist += self.getfileslist(tmppath)
+                        flist += self.get_fileslist(tmppath)
                     elif os.path.isfile(tmppath):
                         flist.append(tmppath)
                     else:
@@ -339,44 +339,44 @@ class TermCtrl:
             return flist
         return flist
 
-    def put(self, client, srcpath, dstpath):
+    def put(self, client, src_path, dst_path):
         '''
         ftp 또는 ssh 클라이언트를 통해 원본경로의 내용을 대상경로로 업로드한다.
         :client: ssh client object
-        :srcpath: source path to upload
-        :dstpath: target path to upload
+        :src_path: source path to upload
+        :dst_path: target path to upload
         '''
         # Client객체가 FTP인지 SFTP인지 체크한다
         sftp = pm.SFTPClient.from_transport(client.get_transport())
-        srcbase = os.path.basename(srcpath)
-        srcfiles = self.getlocalpath(srcpath)
+        srcbase = os.path.basename(src_path)
+        srcfiles = self.getlocal_path(src_path)
 
         # Check source path exists
         if srcfiles == []:
-            self.lgr.error('param srcpath Not exists')
+            self.lgr.error('param src_path Not exists')
             return -1
 
         # Check destination path on target server exist
         # If directory does not exist, create directory
-        isrmt = self.isrmtfile(client, dstpath)
-        if self.isrmtfile(client, dstpath) != 2:
-            sftp.mkdir(dstpath)
+        isrmt = self.isrmtfile(client, dst_path)
+        if self.isrmtfile(client, dst_path) != 2:
+            sftp.mkdir(dst_path)
 
         for path in srcfiles:
-            sftp.put(dstpath + os.sep + path.replace(srcbase, ''))
+            sftp.put(dst_path + os.sep + path.replace(srcbase, ''))
         sftp.close()
 
-    def get(self, client, dstpath):
+    def get(self, client, dst_path):
         # client가 SSH면 SFTP 채널 오픈
         sftp = pm.SFTPClient.from_transport(client.get_transport())
-        dstfiles = []
+        dst_files = []
         
-        # Check Dstpath
+        # Check dst_path
 
         # get directory or files
         pass
 
-    def closeall(self):
+    def close_all(self):
         for i in range(len(self.cinf)):
             c1 = self.cinf['client'][i] != -1
             c2 = pd.isna(self.cinf['client'][i]) == False

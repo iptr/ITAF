@@ -10,7 +10,10 @@ from taiflogger import *
 from dbctrl import *
 from commonlib import *
 
-class NATIDPKT:
+class nat_id_pkt:
+    """
+    DBSAFER 사용자 식별을 위한 패킷 구조 class
+    """
     idcode = b'NATIDENTITY'
     pktver = pack('>H',1)
     totlen = pack('>H',0)
@@ -42,6 +45,19 @@ class NATIDPKT:
 
     def set(self, svcnum=b'', tgip=b'', tgport=b'', gwip=b'', 
             gwport=b'', cert_id=b'', loip=b'', loport=b''):
+        """사용자 식별 기능을 사용하기 위해 패킷의 데이터를 입력한다.
+        모든 파라메터는 옵션이며 입력되지 않을 경우 디폴트 값을 사용한다
+        
+        Args:
+            svcnum (bytes, optional): DBSAFER의 서비스 번호. Defaults to b''.
+            tgip (bytes, optional): 대상서버의 IP주소. Defaults to b''.
+            tgport (bytes, optional): 대상서버의 포트번호. Defaults to b''.
+            gwip (bytes, optional): DBSAFER GATEWAY IP주소. Defaults to b''.
+            gwport (bytes, optional): DBSAFER GATEWAY Port. Defaults to b''.
+            cert_id (bytes, optional): DBSAFER 보안계정. Defaults to b''.
+            loip (bytes, optional): 세션IP(로컬IP). Defaults to b''.
+            loport (bytes, optional): 세션Port(로컬Port). Defaults to b''.
+        """
         # 필수정보 교체: 대상서비스번호, 대상IP, port, 로컬IP, 로컬port, dbsIP, dbsport, 
         #               보안계정)
         if loip != b'':
@@ -78,6 +94,8 @@ class NATIDPKT:
         self.payload = self.idcode + self.pktver + self.totlen + payload
 
     def show_payload(self):
+        """디버깅용 패킷 출력 함수
+        """
         print("idcode : ",self.idcode)
         print("pktver : ",self.pktver)
         print("totlen : ",self.totlen)
@@ -104,6 +122,12 @@ class NATIDPKT:
         print("msgtur : ",self.msgtunnel)
 
     def tosegment(self, rawdata):
+        """Wireshark에서 수집된 Hex Binary bytes를 입력받아서
+        사용자 식별 패킷 형태로 값들을 출력하는 디버깅용 함수
+
+        Args:
+            rawdata (str): [description]
+        """
         label = ["idcode","pktver","totlen","encryp","svctyp","rdplog",
                  "svcnum","loc_ip","loPort","targIP","tgPort","gw  IP",
                  "gwPort","Crtlen","CertID","Prolen","pronam","keylen",
@@ -151,7 +175,6 @@ class TermCtrl:
             self.cols.append(col.strip())
         self.server_list['client'] = []
         self.cols.append('client')
-        #self.setserverlist()
         
     def set_server_list(self):
         slist = get_server_list_csv(self.conf['File']['server_list_file'])
@@ -164,7 +187,7 @@ class TermCtrl:
             self.server_list['client'].append('None')
             
     def connect(self, proto, host, port, user, passwd, timeout=5, ifc=None, 
-                usenatid=False, natidpkt=None):
+                usenatid=False, nat_id_pkt=None):
         """ SSH, Telnet, FTP 접속 후 해당 접속 객체를 리턴함
         Args:
             proto (str): Protocol 'ssh','sftp','TELNET','FTP'
@@ -208,10 +231,10 @@ class TermCtrl:
                 except Exception as e:
                     print(e, host+':'+str(port))
                     return -3
-                if usenatid == True and natidpkt != None:
-                    sktname = sock.getsockname()
-                    natidpkt.set(loport=sktname[1])
-                    sock.send(natidpkt.payload)
+                if usenatid == True and nat_id_pkt != None:
+                    skt_name = sock.getsockname()
+                    nat_id_pkt.set(loport=skt_name[1])
+                    sock.send(nat_id_pkt.payload)
             client = pm.SSHClient()
             client.set_missing_host_key_policy(pm.AutoAddPolicy())
             try:
@@ -238,14 +261,14 @@ class TermCtrl:
                 except Exception as e:
                     print("SFTP Connect : ",e)
                     self.lgr.error(e)
-                return -43
+                    return -43
                 return (client, sftp)
         else:
             self.lgr.error('Wrong protocol : %s' % proto)
             return -5
         return client
     
-    def connectlist(self, cno = None):
+    def connect_list(self, cno = None):
         """ 
         server_list 서버 목록의 일부 또는 전체 서버에 접속을 시도하고 
         server_list에 접속 객체를 갱신함
@@ -269,34 +292,34 @@ class TermCtrl:
                                                 str(ci['userid'][rc]), 
                                                 str(ci['passwd'][rc]))
 
-    def showclients(self):
-        maxcolsize = [0 for col in self.cols]
+    def show_clients(self):
+        max_col_size = [0 for col in self.cols]
         data = []
         for i in range(len(self.server_list['name'])):
             row = []
             for c, col in enumerate(self.cols):
                 try:
-                    if maxcolsize[c] < len(self.server_list[col][i]):
-                        maxcolsize[c] = len(self.server_list[col][i])
+                    if max_col_size[c] < len(self.server_list[col][i]):
+                        max_col_size[c] = len(self.server_list[col][i])
                 except Exception as e:
-                    maxcolsize[c] = 32
+                    max_col_size[c] = 32
                 row.append(str(self.server_list[col][i]))
             data.append(row)
         
         row = ''
-        for c,col in enumerate(self.cols):
-            tmp = '{0:^%s}'%(maxcolsize[c]+4)
+        for c, col in enumerate(self.cols):
+            tmp = '{0:^%s}'%(max_col_size[c]+4)
             row += tmp.format(col) 
         print(row)
         
         for line in data:
             row = ''
             for c, col in enumerate(self.cols):
-                tmp = '{0:^%s}'%(maxcolsize[c]+4)
+                tmp = '{0:^%s}'%(max_col_size[c]+4)
                 row += tmp.format(line[c])
             print(row)
 
-    def closeall(self):
+    def close_all(self):
         for i in range(len(self.server_list['name'])):
             c1 = self.server_list['client'][i] not in ['None','-1']
             if c1:
@@ -307,14 +330,17 @@ class TermCtrl:
                 self.server_list['client'][i] = -1
 
 class CMDRunner():
+    """
+    명령어 테스트를 위한 클래스
+    """
     lgr = None
     def __init__(self):
         self.lgr = Logger().getlogger("CMDRunner")
 
-    def runcmd(self, client, cmd, exresult=''):
+    def run_cmd(self, client, cmd, expected_result=''):
         buf = ''
         if type(client) == tl.Telnet or type(client) == pm.channel.Channel:
-            self.waitrecv(client)
+            self.wait_recv(client)
         if type(client) == pm.client.SSHClient:
             try:
                 stdin, stdout, stderr = client.exec_command(cmd)
@@ -325,13 +351,13 @@ class CMDRunner():
         elif type(client) == pm.channel.Channel:
             try:
                 client.send(cmd+'\n')
-                buf = self.waitrecv(client)
+                buf = self.wait_recv(client)
             except Exception as e:
                 self.lgr.error(e)
         elif type(client) == tl.Telnet:
             try:
                 client.write(cmd.encode() + b'\n')
-                buf = self.waitrecv(client)
+                buf = self.wait_recv(client)
             except Exception as e:
                 self.lgr.error(e)
         else:
@@ -343,39 +369,39 @@ class CMDRunner():
         else:
             buf = buf.decode()
 
-        if buf.find(exresult) > -1:
+        if buf.find(expected_result) > -1:
             return (True, buf)
         else:
             return (False, buf)
             
-    def waitrecv(self, client, waitcount=3, decoding=False):
+    def wait_recv(self, client, wait_count=3, decoding=False):
         """ Waiting for receiving the result of telnet command 
 
         Args:
             client (telnetlib.Telnet): telnet client object
-            waitcount (int) : Seconds of waiting          
+            wait_count (int) : Seconds of waiting          
             decoding (bool) : whether make return data decoded or not
         Returns:
             received data (bytestring or str)
         """
-        readcount=0
-        preread=0
-        readwait=0
-        buf=b''
+        read_count = 0
+        pre_read = 0
+        read_wait = 0
+        buf = b''
         # when SSH on invoke shell Client
         if type(client) == pm.channel.Channel:
             while True:
                 if client.recv_ready():
                     buf += client.recv(65535)
-                    readcount += 1
+                    read_count += 1
                 else:
-                    if preread < readcount :
-                        preread = readcount
-                        readwait = 0
+                    if pre_read < read_count :
+                        pre_read = read_count
+                        read_wait = 0
                     else:
-                        if readwait > waitcount:
+                        if read_wait > wait_count:
                             break
-                    readwait += 1
+                    read_wait += 1
                     time.sleep(0.1)
         # when Telnet Client
         elif type(client) == tl.Telnet:
@@ -383,15 +409,15 @@ class CMDRunner():
                 tmp = client.read_eager()
                 if tmp != b'':
                     buf += tmp
-                    readcount += 1
+                    read_count += 1
                 else:
-                    if preread < readcount :
-                        preread = readcount
-                        readwait = 0
+                    if pre_read < read_count :
+                        pre_read = read_count
+                        read_wait = 0
                     else:
-                        if readwait > waitcount:
+                        if read_wait > wait_count:
                             break
-                    readwait += 1
+                    read_wait += 1
                     time.sleep(0.1)
         else:
             self.lgr.error('client type error: %s'%client)
@@ -404,6 +430,9 @@ class CMDRunner():
 
 
 class FTRunner():
+    """
+    파일 전송 테스트를 위한 클래스
+    """
     lgr = None
     localcwd = None
     
@@ -411,58 +440,58 @@ class FTRunner():
         self.lgr = Logger().getlogger('FTRunner')
         self.localcwd = os.getcwd()
 
-    def getfile(self, client, dstpath, localpath=localcwd):
+    def get_file(self, client, dst_path, local_path=localcwd):
         '''
-        dstpath(str) : 받아올 파일(절대 경로입력 필요)
-        localpath(str) : 가져올 로컬 경로(절대 경로)
+        dst_path(str) : 받아올 파일(절대 경로입력 필요)
+        local_path(str) : 가져올 로컬 경로(절대 경로)
         '''
-        if os.path.basename(localpath) == '':
-            localfile = localpath + os.sep() + os.path.basename(dstpath)
+        if os.path.basename(local_path) == '':
+            local_file = local_path + os.sep() + os.path.basename(dst_path)
         else:
-            localfile = localpath
+            local_file = local_path
         # Client객체가 FTP인지 SFTP인지 체크한다
         if type(client) == fl.FTP:
             try:
-                f = open(localfile,'wb')
-                ftpcmd = 'RETR ' + os.path.abspath(dstpath)
-                client.retrbinary(ftpcmd, f.write, blocksize=8192, rest=None)
+                f = open(local_file,'wb')
+                ftp_cmd = 'RETR ' + os.path.abspath(dst_path)
+                client.retrbinary(ftp_cmd, f.write, blocksize=8192, rest=None)
                 f.close()
             except Exception as e:
-                print('DEBUG1:', e, dstpath)
+                print('DEBUG1:', e, dst_path)
                 return -1
         elif type(client) == pm.sftp_client.SFTPClient:
             try:
-                client.get(dstpath, localpath)
+                client.get(dst_path, local_path)
             except Exception as e:
-                print('DEBUG2:', e, dstpath, localpath)
+                print('DEBUG2:', e, dst_path, local_path)
                 return -1
         else:
             self.lgr.error("Wrong type Client")
             return -2
         return 0
         
-    def putfile(self, client, srcpath, dstpath):
+    def put_file(self, client, src_path, dst_path):
         '''
         ftp 또는 ssh 클라이언트를 통해 원본경로의 내용을 대상경로로 업로드한다.
         :client: ssh client object
-        :srcpath: source path to upload
-        :dstpath: target path to upload
+        :src_path: source path to upload
+        :dst_path: target path to upload
         '''
-        if os.path.basename(dstpath) == '': 
-            dstfile = dstpath + os.sep() + os.path.basename(srcpath)
+        if os.path.basename(dst_path) == '': 
+            dst_file = dst_path + os.sep() + os.path.basename(src_path)
         else:
-            dstfile = dstpath
+            dst_file = dst_path
         # Client객체가 FTP인지 SFTP인지 체크한다
         if type(client) == fl.FTP:
             try:
-                ftpcmd = 'STOR ' + os.path.abspath(dstfile)
-                client.storbinary(ftpcmd, open(srcpath,'rb'), blocksize=8192, callback=None, rest=None)
+                ftp_cmd = 'STOR ' + os.path.abspath(dst_file)
+                client.storbinary(ftp_cmd, open(src_path,'rb'), blocksize=8192, callback=None, rest=None)
             except Exception as e:
                 print(e)
                 return -1
         elif type(client) == pm.sftp_client.SFTPClient:
             try:
-                client.put(srcpath, dstfile)
+                client.put(src_path, dst_file)
             except Exception as e:
                 print('DEBUG:', e)
                 return -2

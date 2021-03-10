@@ -199,7 +199,7 @@ def get_remote_file_list(self, path, client=None):
         flist = []
         if client != None:
             cmd = "file `find %s`|grep -v directory" % path
-            ret = self.runcmd(client, cmd)
+            ret = self.run_cmd(client, cmd)
             if len(ret['stdout'][0]) > 0:
                 for line in ret['stdout'][0]:
                     flist.append(line.strip(':')[0])
@@ -221,7 +221,7 @@ def get_local_path(self, path):
     bname = os.path.basename(path)
     # Check whether the path is a directory
     if os.path.isdir(path):
-        flist = self.getfileslist(path)
+        flist = self.get_fileslist(path)
         return flist
 
     # whether path is a file
@@ -251,7 +251,7 @@ def get_local_path(self, path):
             if re.fullmatch(patt, fn) != None:
                 tmppath = dname + os.sep + fn
                 if os.path.isdir(tmppath):
-                    flist += self.getfileslist(tmppath)
+                    flist += self.get_fileslist(tmppath)
                 elif os.path.isfile(tmppath):
                     flist.append(tmppath)
                 else:
@@ -298,6 +298,14 @@ def tuple_to_str_list(data):
     ret = []
     for line in data:
         ret.append(line[0])
+        
+def list_to_csv_str(line):
+    '''
+    list를 csv형태의 string으로 변환함
+    line (list) : CSV 형태로 변경할 list
+    return : str + '\n'
+    '''
+    return str(line).strip("[]\'").replace('\'', '').replace(' ','') + '\n'
     
 if __name__ == '__main__':
     pass
