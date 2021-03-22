@@ -1,5 +1,7 @@
 import pymysql as mysql
+import json
 from taiflogger import *
+
 
 CONF_PATH = 'conf/taif.conf'
 
@@ -13,15 +15,14 @@ class DBCtrl():
             db (Obj:DBconnector) : DB Connecter Object
             cur (Ojb:DBCursor) : DB Cursor for querying
     """
-    cinf = {}
-    lgr = None
-    db = None
-    cur = None
+
+
 
     def __init__(self):
         # json 형태의 설정파일을 읽고 접속정보를 읽어옴
-        self.lgr = Logger().getlogger("DBController")
-        pass
+        self.cinf = {}
+        self.db = None
+        self.cur = None
 
     def connect(self, host=None, port=None, user=None, passwd=None, db=None,
     	        charset=None):
@@ -48,8 +49,13 @@ class DBCtrl():
                 self.db = mysql.connect(host=host, port=int(\
                     port), user=user, passwd=passwd, db=db, charset=charset)
             except Exception as e:
-                self.lgr.error(e)
-                return -1
+                try:
+                    self.db = mysql.connect(host=host, port=int(\
+                        port), user=user, passwd=passwd, charset=charset)
+                    cur = self.db.cursor()
+                    cur.execute("create database %s"%(db))
+                except Exception as e:
+                    return -1
         else:
             cif = self.cinf
             try:
@@ -57,46 +63,65 @@ class DBCtrl():
                 						user=cif['userid'], passwd=cif['passwd'], 
                 						db=cif['dbname'], charset=cif['charset'])
             except Exception as e:
-                self.lgr.error(e)
-                return -1
-        self.cur = self.db.cursor()
-        return self.db, self.cur
+                try:
+                    self.db = mysql.connect(host=cif['host'], port=int(cif['port']),
+                                            user=cif['userid'], passwd=cif['passwd'],
+                                            charset=cif['charset'])
+                    cur = self.db.cursor()
+                    cur.execute("create database %s"%(cif['dbname']))
 
-    def isdbtbl(self, dbname='', tblname=''):
+                except Exception as e:
+                    return -1
+
+        return self.db
+
+    def setCursor(self,db):
+        self.cur = db.cursor()
+        return self.cur
+
+    def checkDBExist(self, dbname=""):
         """
-        Check DB and Table exists
+        Check DB exists
 
         Args:
-                dbname : DB name to check
+                dbname : db name to check
+
+        Returns :
+                Result of DB existence(int)
+                0 : DB 존재
+                -1 : DB 없음(실패)
+        """
+        query = "show databases like \'%s\'" % str(dbname)
+        if dbname == '' or self.cur.execute(query) == 0:
+            return -1
+        return 0
+
+    def checkTableExist(self, dbname='', tblname=''):
+        """
+        Check Table exists
+
+        Args:
                 tblname : Table name to check
 
         Returns :
                 Result of table existence(int)
-                0 : Both DB and table exist
-                -1 : DB does not exist
-                -2 : Table does not exist
+                0 : 테이블 존재
+                -1 : 테이블 없음(실패)
         """
-        chkdbquery = "show databases like \'%s\'" % str(dbname)
-        chktblquery = "SELECT COUNT(*) FROM Information_schema.tables "
-        chktblquery += "WHERE table_schema=\'%s\' and " % str(dbname)
-        chktblquery += "table_name = \'%s\'" % str(tblname)
+        query = "SELECT COUNT(*) FROM Information_schema.tables "
+        query += "WHERE table_schema=\'%s\' and " % str(dbname)
+        query += "table_name = \'%s\'" % str(tblname)
         if dbname == '' or tblname == '':
-            self.lgr.error('DB name or table name is blank')
             return -1
-        if self.cur.execute(chkdbquery) == 0:
-            self.lgr.error('%s DB Not exist')
-            return -2
         else:
-            self.cur.execute(chktblquery)
+            self.cur.execute(query)
             temp = self.cur.fetchone()
             if temp[0] == '0':
-                self.lgr.error('%s Table Not exist')
-                return -3
+                return -1
             else:
-                self.lgr.debug('%s.%s exist' % (dbname, tblname))
                 return 0
 
-    def getcolumns(self, dbname='', tblname=''):
+    def getColumns(self, dbname='', tblname=''):
         """
         Get specific column's label
         Args:
@@ -105,7 +130,7 @@ class DBCtrl():
         Returns :
                 list of Column's label
         """
-        if self.isdbtbl(dbname, tblname) != 0:
+        if self.checkDBExist(dbname) != 0 or self.checkTableExist(tblname) != 0:
             return -1
         query = 'select * from %s.%s limit 1' % (dbname, tblname)
         self.cur.execute(query)
@@ -115,7 +140,7 @@ class DBCtrl():
             cols.append(row[0])
         return cols
 
-    def insert(self, dbname='', tblname='', value=[]):
+    def insert(self, dbname='', tblname='', column=[],value=[]):
         """
         Run Insert query
         Args:
@@ -127,19 +152,24 @@ class DBCtrl():
                 0 < : Error
                 0 = : Success
         """
-        if self.isdbtbl(dbname, tblname) != 0 or value == []:
-            self.lgr.error('Could not Insert DATA')
+        if self.checkDBExist(dbname) != 0 or self.checkTableExist(dbname,tblname) != 0 or value == []:
+            #self.lgr.error('Could not Insert DATA')
             return -1
+
         query = "Insert into " + dbname + '.' + tblname
+        query += "(%s)"%(str(column).strip("[]")).replace("'","")
         query += " values(%s)" % (str(value).strip("[]"))
+
         try:
             ret = self.cur.execute(query)
         except Exception as e:
-            self.lgr.error(e)
-            return -2
+            #self.lgr.error(e)
+            print(e)
+            return -1
+
         if ret > 0:
-            self.lgr.info('%s inserted to %s.%s' % (value, dbname, tblname))
-            return ret
+            #self.lgr.info('%s inserted to %s.%s' % (value, dbname, tblname))
+            return 0
         self.db.commit()
 
     def select(self, dbname='', tblname='', case='', cols=[], \
@@ -159,8 +189,9 @@ class DBCtrl():
                 [[]]] list : Result of select query
 
         """
-        if self.isdbtbl(dbname, tblname) != 0:
-            self.lgr.debug("db or table name not exist")
+        if self.checkDBExist(dbname) != 0 or self.checkTableExist(dbname,tblname) != 0:
+            #self.lgr.debug("db or table name not exist")
+            print("DB,TABLE!!")
             return -1
 
         if len(cols) == 0:
@@ -170,27 +201,105 @@ class DBCtrl():
         query += " %s.%s" % (dbname, tblname)
         if case != '':
             query += " where %s" % (case)
-
+        print(query)
         try:
             self.cur.execute(query)
         except Exception as e:
-            self.lgr.error(e)
-            return -2
+            print(e)
+            #self.lgr.error(e)
+            return -1
 
-        lines = []
+        contents = []
         if without_header == False:
-            lines.append(self.getcolumns(dbname, tblname))
+            contents.append(self.getcolumns(dbname, tblname))
 
         try:
             while True:
                 temp = self.cur.fetchone()
                 if temp == None:
                     break
-                lines.append(list(temp))
+                contents.append(list(temp))
         except Exception as e:
-            self.lgr.error(e)
-            return -3
-        return lines
+            #self.lgr.error(e)
+            return -1
+        return contents
+
+    def delete(self,dbname='', tblname='', case=''):
+        """
+        Run delete query
+        Example:
+
+        Args:
+                dbname(str) : DB name
+                tblname(str) : Table name
+                case(str) : Case without "where"
+        Returns:
+                0 < : Error
+
+        """
+
+        if self.checkDBExist(dbname) != 0 or self.checkTableExist(dbname,tblname) != 0:
+            return -1
+
+        query = "delete from " + dbname + '.' + tblname
+
+        if case != '':
+            query += " where %s" % (case)
+
+        try:
+            self.cur.execute(query)
+        except Exception as e:
+            return -1
+
+        self.db.commit()
+
+        return 0
+
+    def update(self, dbname='', tblname='', case='', cols=[], value=[]):
+        """
+        Run update query
+        Example:
+
+        Args:
+                dbname(str) : DB name
+                tblname(str) : Table name
+                case(str) : Case without "where"
+                cols(list) : update columns
+                value(list) : Value matching column
+        Returns:
+                0 < : Error
+
+        """
+
+        if self.checkDBExist(dbname) != 0 or self.checkTableExist(dbname,tblname) != 0:
+            return -1
+
+        if (len(cols) == 0 or len(value) == 0) or (len(cols) != len(value)):
+            return -1
+
+        query = "update " + dbname + '.' + tblname + " set "
+
+        for i in range(len(cols)):
+            if type(value[i]) is int:
+                query += "%s = %d "%(cols[i],value[i])
+            else:
+                query += "%s = '%s' "%(cols[i],value[i])
+
+            if i != (len(cols) - 1):
+                query +=","
+
+        if case != '':
+            query += " where %s" % (case)
+        print(query)
+        try:
+            self.cur.execute(query)
+        except Exception as e:
+            print(e)
+            return -1
+
+        self.db.commit()
+
+        return 0
 
     def close(self):
         self.db.commit()
@@ -214,3 +323,4 @@ class VerifyDBS(DBCtrl):
     
     def getFTPRet(self):
         pass
+
