@@ -1,0 +1,4 @@
+# 직접 입력(단수, 복수), 간접 참조(파일 경로)
+#VUserID,세션수,CertID,슈터(세션)IP,설정정보,대상서비스정보,입력 데이터세트 경로
+vUser01,3,['dbsafer','tester'],192.168.4.100,TEST_TYPE = SSH,['192.168.4.200',4100,'root','dbsafer00'],['whoami','root',0]
+vUser02,2,'trollking',['192.168.4.100','192.168.106.107'],@conf/vuser.conf,@conf/vuser_target.csv,@conf/vuser_dataset.csv

@@ -229,13 +229,13 @@ def set_nat_identity(conf, server_list):
                     sl[1] == line[1]):
                     print("DEBUG : ",sl)
                     try:
-                        f.write(list_to_csv_str(sl))
+                        f.write(line_to_csv_str(sl))
                     except Exception as e:
                         print(e, sl)
                     chk_flag = True
                     break
             if False == chk_flag:
-                f.write(list_to_csv_str(line))
+                f.write(line_to_csv_str(line))
         f.close()
     else:
         for sl in server_list:

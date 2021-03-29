@@ -1,2 +1,0 @@
-#세션ID,프로토콜,IP,Port,ID,PW,Conf or Conf path(@),CMD/FILE list or csv path(use @)
-testsession,ssh,192.168.6.102,root,dbsafer00)),@conf/testconf,@conf/testcmd.csv

@@ -149,8 +149,8 @@ def get_server_list_csv(fname):
     lines = []
 
     for row in org:
-        if len(row) < len(cols) :
-            continue
+        #if len(row) < len(cols) :
+        #    continue
         if row[1].lower() not in ['ssh','telnet','ftp','sftp']:
             continue
         if not chk_valip(row[2]):
@@ -299,13 +299,38 @@ def tuple_to_str_list(data):
     for line in data:
         ret.append(line[0])
         
-def list_to_csv_str(line):
+def line_to_csv_str(line):
     '''
-    list를 csv형태의 string으로 변환함
+    line을 csv형태의 string으로 변환함
     line (list) : CSV 형태로 변경할 list
     return : str + '\n'
     '''
     return str(line).strip("[]\'").replace('\'', '').replace(' ','') + '\n'
+
+def print_matrix(contents:list, header=None, padding=1):
+    '''
+    2중 리스트(테이블)를 입력 받아 정리된 테이블형태로 출력한다.
+    '''
+    result = []
+    sizelist = [0 for _ in contents[0]]
     
+    if header == list:
+        contents.insert(0,header)
+
+    # 각 컬럼의 최대 크기 측정
+    for row in contents:
+        for i,col in enumerate(row):
+            if sizelist[i] < len(col):
+                sizelist[i] = len(col)
+    
+    # 컬럼 사이즈대로 출력하기
+    for row in contents:
+        line = ''
+        for i,csz in enumerate(sizelist):
+            temp = '{0:^%s}'%(csz+(padding*2))
+            line += temp.format(row[i])
+        print(line)
+    return result
+
 if __name__ == '__main__':
     pass
