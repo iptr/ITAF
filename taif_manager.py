@@ -1,23 +1,22 @@
-import asyncio
-import json
-import platform as pf
-# Libs for Implementation of daemon
-import grp
-import signal
-import logmacro
-import argparse
-from commonlib import *
-
 '''
-TCP5025 port listen
 taif_agent로 부터 접속을 받아 서버목록을 관리함
-가상 사용자 테스트 세트를 받아 taif_agent에 전달
+가상 사용자 테스트 세트를 taif_agent에 전달
 taif_agent로부터 해당 서버의 가용 상태를 관리
 테스트 준비 상태 수집
 테스트 실행 명령 전달
 테스트 결과 수집
 수집된 결과 정리 및 리포트 작성
 '''
+
+import asyncio
+import json
+import platform as pf
+# Libs for Implementation of daemon
+#import grp
+import signal
+import logmacro
+import argparse
+from commonlib import *
 
 '''
 터미널 명령어 리스트
@@ -176,9 +175,7 @@ class PerfDataSet:
 
 # 테스트 결과 수집
 
-
 # 수집된 결과 및 리포트 작성
-
 
 # 데몬 클래스
 class TaifServer:
@@ -199,8 +196,8 @@ class TaifServer:
     IPC를 어떻게 구현하지?
     아... 모르겠다 그냥 TCP 포트 통신으로 하자...
     TCP 5025로 붙어서 명령어 떤지고... 결과 받는식으로 가보자
-    
     '''
+
     async def handler(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         while True:
             # 클라이언트가 보낸 내용을 받기
@@ -219,23 +216,21 @@ class TaifServer:
     async def start_server(self):
         # 서버를 생성하고 실행
         server = await asyncio.start_server(self.handler, host="0.0.0.0", port=5025)
+        print(server)
         async with server:
             # serve_forever()를 호출해야 클라이언트와 연결을 수락합니다.
             await server.serve_forever()
 
-
-    def start_taif_server():
-        ts = TaifServer()
-        asyncio.run(ts.start_server())
+def start_taif_server():
+    ts = TaifServer()
+    asyncio.run(ts.start_server())
 
 if __name__ == '__main__':
     if 'Linux' != pf.system():
         print('This Program can be run on Linux')
         exit(-1)
         
-    
-        
-    # 시작 - 5025포트 리스닝하는 데몬 프로세스 생성
+    start_taif_server()
     
     
-    pass
+    
