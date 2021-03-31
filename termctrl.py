@@ -10,7 +10,7 @@ from taiflogger import *
 from dbctrl import *
 from commonlib import *
 
-class nat_id_pkt:
+class NatIdPkt:
     """
     DBSAFER 사용자 식별을 위한 패킷 구조 class
     """
@@ -187,7 +187,7 @@ class TermCtrl:
             self.server_list['client'].append('None')
             
     def connect(self, proto, host, port, user, passwd, timeout=5, ifc=None, 
-                usenatid=False, nat_id_pkt=None):
+                usenatid=False, NatIdPkt=None):
         """ SSH, Telnet, FTP 접속 후 해당 접속 객체를 리턴함
         Args:
             proto (str): Protocol 'ssh','sftp','TELNET','FTP'
@@ -231,10 +231,10 @@ class TermCtrl:
                 except Exception as e:
                     print(e, host+':'+str(port))
                     return -3
-                if usenatid == True and nat_id_pkt != None:
+                if usenatid == True and NatIdPkt != None:
                     skt_name = sock.getsockname()
-                    nat_id_pkt.set(loport=skt_name[1])
-                    sock.send(nat_id_pkt.payload)
+                    NatIdPkt.set(loport=skt_name[1])
+                    sock.send(NatIdPkt.payload)
             client = pm.SSHClient()
             client.set_missing_host_key_policy(pm.AutoAddPolicy())
             try:
