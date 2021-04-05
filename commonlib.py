@@ -7,7 +7,10 @@ import re
 import os
 import csv
 import hashlib
+import base64
 import configparser as cp
+from struct import pack
+from ipaddress import IPv4Address
 from dbctrl import *
 
 CONF_PATH = 'conf/taif.conf'
@@ -274,10 +277,25 @@ def rotator(values):
         if i >= len(values):
             i = 0
             
-def get_hash(buf):
-    result = hashlib.sha256(buf.encode())
-    return result.hexdigest()
+def get_hash(buf, algorithm='sha256'):
+    hash = hashlib.new(algorithm)
+    hash.update(buf.encode())
+    return hash.hexdigest()
 
+def get_hash_bytes(buf, algorithm='sha256'):
+    hash = hashlib.new(algorithm)
+    if type(buf) == str:
+        hash.update(buf.encode())
+    else:
+        hash.update(buf)
+    return hash.digest()
+
+def encode_b64(text):
+    """
+    Text를 Base64로 인코딩
+    """
+    return base64.b64encode(text)
+    
 def get_file_hash(fname):
     '''
     파일로부터 해쉬값을 뽑아 str 형태로 리턴함
@@ -331,6 +349,37 @@ def print_matrix(contents:list, header=None, padding=1):
             line += temp.format(row[i])
         print(line)
     return result
+
+def usToB(number:int):
+    """정수를 Unsigned Short(2byte)의 
+    Big endian Binary Byte로 리턴함
+
+    Args:
+        number (int): 바꿀 정수
+
+    Returns:
+        bytes : 2byte크기의 Binary bytes
+    """
+    return pack('>H',int(number))
+
+def ipToB(ipaddr:str):
+    """IP주소 -> Big endian Binary bytes 변경
+
+    Args:
+        ipaddr (str): 문자로된 IP주소
+
+    Returns:
+        bytes: 문자열 바이너리 바이트
+    """
+    return IPv4Address(ipaddr).packed
+    
+def longToB(num:int):
+    """Unsigned long to Big endian Binary Bytes로 변경
+
+    Args:
+        bytes (str): 4bytes Binary
+    """
+    return pack('>I',int(num))
 
 if __name__ == '__main__':
     pass

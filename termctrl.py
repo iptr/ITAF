@@ -13,6 +13,9 @@ from commonlib import *
 class NatIdPkt:
     """
     DBSAFER 사용자 식별을 위한 패킷 구조 class
+    H = US 2Byte
+    B = UCH 2Byte
+    I = LI 4Byte
     """
     idcode = b'NATIDENTITY'
     pktver = pack('>H',1)
