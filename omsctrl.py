@@ -1,4 +1,5 @@
 import socket as skt
+import binascii as ba
 from commonlib import *
 
 OMS_DMS_PORT = 50011
@@ -25,7 +26,7 @@ SERVICE_REQ_CODE = 316
 SERVICE_START_RES_CODE = 317
 SERVICE_DATA_RES_CODE = 318
 LOOPBACK_REQ_CODE = 407
-LOOPBACK_REQ_CODE = 408
+LOOPBACK_RES_CODE = 408
 LOGOUT_REQ_CODE = 92
 LOGOUT_RES_CODE = 95
 
@@ -64,10 +65,15 @@ class OmsPktMaker:
         '''
         OMS_DMS 명령어 부분 만드는 함수
         '''
+        print("Command")
         payload = usToB(cmd)
+        print(ba.hexlify(usToB(cmd)))
         payload += usToB(length)
+        print(ba.hexlify(usToB(length)))
         payload += usToB(structhash)
+        print(ba.hexlify(usToB(structhash)))
         payload += checkcode
+        print(ba.hexlify(checkcode),'\n')
         self.cmd_info = payload
         return payload
 
@@ -78,31 +84,76 @@ class OmsPktMaker:
         로그인 패킷 만들때 명령어 뒷부분에 붙는 내용
         Struct_type : 구조체 종류 (unikey, v4, ex)
         '''
+        print('Login Payload')
         payload = longToB(2)
+        print('Auth Type :', ba.hexlify(longToB(2)))
+        
         payload += usToB(len(sno)) + sno.encode()
+        print('Cert ID Len :', ba.hexlify(usToB(len(sno))))
+        print('Cert ID :', ba.hexlify(sno.encode()))
+        
         payload += usToB(44) + encode_b64(get_hash_bytes(pw))
+        print('Pw Len :', ba.hexlify(usToB(44)))
+        print('Pw :', ba.hexlify(encode_b64(get_hash_bytes(pw))))
+        
         payload += usToB(len(name)) + name.encode()
+        print('Name Len :', ba.hexlify(usToB(len(name))))
+        print('Name :', ba.hexlify(name.encode()))        
+        
         payload += usToB(len(tel)) + tel.encode()
+        print('Tel Len :', ba.hexlify(usToB(len(tel))))
+        print('Tel :', ba.hexlify(tel.encode()))        
+        
         payload += usToB(len(part)) + part.encode()
+        print('Part Len :', ba.hexlify(usToB(len(part))))
+        print('part :', ba.hexlify(part.encode()))
+        
         payload += usToB(len(position)) + position.encode()
+        print('position Len :', ba.hexlify(usToB(len(position))))
+        print('position :', ba.hexlify(position.encode()))
+        
         payload += usToB(len(business)) + business.encode()
+        print('business Len :', ba.hexlify(usToB(len(business))))
+        print('business :', ba.hexlify(business.encode()))
+        
         payload += usToB(len(privip)) + privip.encode()
+        print('privip Len :', ba.hexlify(usToB(len(privip))))
+        print('privip :', ba.hexlify(privip.encode()),'\n')
+        
         strtype = struct_type.lower()
         if strtype in ('unikey','v4') :
             #unikey
             payload += usToB(64)
-            payload += encode_b64(get_hash_bytes(unikey.encode()))
+            print('unikey Len :', ba.hexlify(usToB(64)))
+            
+            #payload += encode_b64(get_hash_bytes(unikey.encode()))
+            #print('unikey : ', ba.hexlify(encode_b64(get_hash_bytes(unikey.encode()))), '\n')
+            payload += b'87443DE767DDB0BEDD5D7EDE8B79A923490FF50FC0DA8D2513869BA73132D4C1'
+            #print('unikey : ', ba.hexlify(bytes.fromhex(hex_var)))
+            
             self.login_info = payload    
             if strtype == 'v4':
                 #pw_sha256
                 payload += usToB(44) + encode_b64(get_hash_bytes(pw))
+                print('pw_sha256 Len :', ba.hexlify(usToB(44)))
+                print('pw_sha256 :', ba.hexlify(encode_b64(get_hash_bytes(pw))))
+                
                 #pw_sha512
                 payload += usToB(128)
+                print('pw_sha512 Len :', ba.hexlify(usToB(128)))
                 payload += encode_b64(get_hash_bytes(pw, algorithm='sha512'))
+                print('pw_sha256 :', ba.hexlify(encode_b64(get_hash_bytes(pw,algorithm='sha512'))))
+                
                 #public ip
                 payload += usToB(len(pubip)) + pubip.encode()
+                print('Public IP Len :',ba.hexlify(usToB(len(pubip))))
+                print('Public IP :', ba.hexlify(pubip.encode()))
+                
                 #login_tool
                 payload += longToB(0)
+                print('Login Tool', ba.hexlify(longToB(0)))
+                print('\n')
+                
                 self.logininfo = payload
         return payload
         
@@ -117,7 +168,8 @@ class OmsPktMaker:
         payload += usToB(len(cpu_info)) + cpu_info.encode()
         payload += usToB(len(mem_info)) + mem_info.encode()
         payload += usToB(len(ipaddr)) + ipaddr.encode()
-        payload += usToB(64) + encode_b64(get_hash_bytes(unikey.encode()))
+        unikey = b'87443DE767DDB0BEDD5D7EDE8B79A923490FF50FC0DA8D2513869BA73132D4C1'
+        payload += usToB(64) + unikey
         self.env_unikey_info = payload
         return payload
 
@@ -128,7 +180,7 @@ class OmsPktSender:
     '''
     # setConf() 실행여부 Flag
     conf_flag = False
-    
+        
     def __init__(self):
         self.pkt_maker = OmsPktMaker()
         
@@ -156,65 +208,68 @@ class OmsPktSender:
         self.ipaddr = ipaddr
         self.unikey = 'unikey'
         self.conf_flag = True
-    
-    def sendPacket(self, payload):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1
+        
+    def connect(self):
         sock = skt.socket(skt.AF_INET, skt.SOCK_STREAM)
         sock.settimeout(TIME_OUT_SEC)
-        #sock.setblocking(0)
-        sock.connect((self.host, OMS_DMS_PORT))
-        print(payload)
-        print("Response DATA")
-        sock.send(payload)
-        data = b''
-        while True:
-            buf = sock.recv(MAX_RECV_SIZE)
-            data += buf
-            if not buf:
-                break
-            if len(buf) < MAX_RECV_SIZE:
-                break
-        sock.close()
-        return data
+        sock.connect((self.host, OMS_DMS_PORT))    
+        return sock
     
-    def sendVersionReqPkt(self):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1        
+    def sendPacket(self, step_num):
+        funclist = [[self.makeVersionReqPkt, 
+                     self.makePolicyReqPkt],
+                     [self.makeIPCheckReqPkt],
+                    [self.makeLoginUnikeyReqPkt,
+                     self.makeLoginReqPkt,
+                     self.makeSaveEnvReqPkt],
+                    [self.makeSerialCheckReqPkt,
+                     self.makeServiceReqPkt],
+                    [self.makeLoopBackMsgReqPkt,
+                     self.makeLogoutReqPkt]]
+        ret_data = []
+        sock = self.connect()
+    
+        for func in funclist[step_num]:
+            payload = func()
+            print(ba.hexlify(payload))
+            try:
+                sock.send(payload)
+            except BaseException as e:
+                print(e, step_num)
+            data = b''
+            while True:
+                buf = sock.recv(MAX_RECV_SIZE)
+                data += buf
+                if buf == b'':
+                    break
+            print(ba.hexlify(data))
+            ret_data.append(data)
+            
+        sock.close()
+        return ret_data
+    
+    def makeVersionReqPkt(self):       
         payload = self.pkt_maker.makeCommandInfo(VERSION_REQ_CODE, 
                                        COMMAND_LENGTH,
                                        DEFAULT_STRUCTHASH,
                                        CHECK_CODE)
-        return self.sendPacket(payload)
+        return payload
         
-    def sendPolicyReqPkt(self):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1
+    def makePolicyReqPkt(self):
         payload = self.pkt_maker.makeCommandInfo(POLICY_REQ_CODE,
                                               COMMAND_LENGTH,
                                               DEFAULT_STRUCTHASH,
                                               CHECK_CODE)
-        return self.sendPacket(payload)
+        return payload
         
-    def sendIPCheckReqPkt(self):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1
-        
+    def makeIPCheckReqPkt(self):        
         payload = self.pkt_maker.makeCommandInfo(IP_CHECK_REQ_CODE,
                                                  COMMAND_LENGTH,
                                                  DEFAULT_STRUCTHASH,
                                                  CHECK_CODE)
-        return self.sendPacket(payload)
+        return payload
 
-    def sendLoginUnikeyReqPkt(self):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1
-        
+    def makeLoginUnikeyReqPkt(self):
         payload = self.pkt_maker.makeCommandInfo(LOGIN_UNIKEY_REQ_CODE,
                                                  COMMAND_LENGTH,
                                                  LOGIN_UNIKEY_STRUCTHASH,
@@ -230,13 +285,9 @@ class OmsPktSender:
                                                 self.position,
                                                 self.business,
                                                 self.unikey)
-        return self.sendPacket(payload)
+        return payload
         
-    def sendLoginReqPkt(self):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1   
-        
+    def makeLoginReqPkt(self):
         payload = self.pkt_maker.makeCommandInfo(LOGIN_UNIKEY_REQ_CODE,
                                       COMMAND_LENGTH,
                                       LOGIN_UNIKEY_STRUCTHASH,
@@ -252,13 +303,9 @@ class OmsPktSender:
                                                 self.position,
                                                 self.business,
                                                 self.unikey)
-        return self.sendPacket(payload)
+        return payload
 
-    def sendSaveEnvReqPkt(self):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1
-        
+    def makeSaveEnvReqPkt(self):       
         payload = self.pkt_maker.makeCommandInfo(SAVE_CLIENT_REQ_CODE,
                                                  COMMAND_LENGTH,
                                                  ENV_UNIKEY_STRUCTHASH,
@@ -272,13 +319,9 @@ class OmsPktSender:
                                                     self.mem,
                                                     self.ipaddr,
                                                     self.unikey)
-        return self.sendPacket(payload)
+        return payload
         
-    def sendSerialCheckReqPkt(self):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1
-        
+    def makeSerialCheckReqPkt(self):
         payload = self.pkt_maker.makeCommandInfo(CHECK_SERIAL_REQ_CODE,
                                                  COMMAND_LENGTH,
                                                  LOGIN_UNIKEY_STRUCTHASH,
@@ -294,12 +337,9 @@ class OmsPktSender:
                                                 self.position,
                                                 self.business,
                                                 self.unikey)
-        return self.sendPacket(payload)
+        return payload
     
-    def sendServiceReqPkt(self):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1
+    def makeServiceReqPkt(self):
         payload = self.pkt_maker.makeCommandInfo(SERVICE_REQ_CODE,
                                        COMMAND_LENGTH,
                                        LOGIN_EX_STRUCTHASH,
@@ -315,22 +355,16 @@ class OmsPktSender:
                                                 self.position,
                                                 self.business,
                                                 self.unikey)
-        return self.sendPacket(payload)
+        return payload
                       
-    def sendLoopBackMsgReqPkt(self):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1
+    def makeLoopBackMsgReqPkt(self):
         payload = self.pkt_maker.makeCommandInfo(LOOPBACK_REQ_CODE,
                                                  COMMAND_LENGTH,
                                                  DEFAULT_STRUCTHASH,
                                                  CHECK_CODE)
-        return self.sendPacket(payload)
+        return payload
                 
-    def sendLogoutReqPkt(self):
-        if self.conf_flag != True:
-            # Logger 기술
-            return -1
+    def makeLogoutReqPkt(self):
         payload = self.pkt_maker.makeCommandInfo(LOGOUT_REQ_CODE,
                                                  COMMAND_LENGTH,
                                                  LOGIN_UNIKEY_STRUCTHASH,
@@ -346,7 +380,7 @@ class OmsPktSender:
                                                 self.position,
                                                 self.business,
                                                 self.unikey)
-        return self.sendPacket(payload)
+        return payload    
 
 def prepareTest():
     pktsender = OmsPktSender()
@@ -355,11 +389,11 @@ def prepareTest():
                       'dbsafer00',
                       '10.77.160.180',
                       '10.77.160.180',
-                      'Trollking',
-                      '01062445025',
-                      'QA',
-                      'Tester',
-                      'None',
+                      '',
+                      '',
+                      '',
+                      '',
+                      '',
                       '10.77.160.180',
                       'AA:BB:CC:DD:EE:FF',
                       '2',
@@ -371,31 +405,16 @@ def prepareTest():
     return pktsender
 
 def runTest(pkts):
-    print('Version Request')
-    print(pkts.sendVersionReqPkt())
-    print('Policy Request')
-    print(pkts.sendPolicyReqPkt())
-    print('IP check Request')
-    print(pkts.sendIPCheckReqPkt())
-    print('Login Unikey Request')
-    print(pkts.sendLoginUnikeyReqPkt())
-    print('Login Request')
-    print(pkts.sendLoginReqPkt())
-    print('Save Env Request')
-    print(pkts.sendSaveEnvReqPkt())
-    print('Serial Check Request')
-    print(pkts.sendSerialCheckReqPkt())
-    print('Service Request')
-    print(pkts.sendServiceReqPkt())
-    print('LoopBackMsg Request')
-    print(pkts.sendLoopBackMsgReqPkt())
-    print('Log-out Request')
-    print(pkts.sendLogoutReqPkt())
+    pkts.sendPacket(0)
+    pkts.sendPacket(1)
+    pkts.sendPacket(2)
+    pkts.sendPacket(3)
+    pkts.sendPacket(4)
     
 def closeTest():
     pass
 
 if __name__ == '__main__':
-
+    
     pktsender = prepareTest()
     runTest(pktsender)
