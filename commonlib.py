@@ -7,58 +7,37 @@ import re
 import os
 import csv
 import hashlib
-import base64
 import configparser as cp
-from struct import pack
-from ipaddress import IPv4Address
 from dbctrl import *
 
 CONF_PATH = 'conf/taif.conf'
 
 def chk_strlen(value, min, max):
-    '''
-    문자열 길이 체크
-    '''
     if min <= len(value) <= max:
         return True
     else:
         return False
     
 def chk_valip(value):
-    '''
-    IP주소 문자열에 대한 Vaildation Check
-    '''
     patt = re.compile("((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)")
-    
     if patt.fullmatch(value):
         return True
     else:
         return False 
     
 def chk_intsize(value, min=0, max=100000):
-    '''
-    value값에 대해서 min~max 사이의 정수일 경우 True 
-    정수가 아니거나 범위를 초과할 경우 False
-    '''
     try:
         value = int(value)
     except Exception as e:
         return False
-
     if min <= value <= max:
         return True
     else:
         return False
     
-def get_file_conf(conf_file, section=None, option=None):
-    '''
-    파일로부터 설정을 가져오는 함수
-    '''
+def getfileconf(conf_file, section=None, option=None):
     config = cp.ConfigParser()
-    try:
-        config.read(conf_file, encoding='UTF-8')
-    except Exception as e:
-        print('get_file_conf() error : ' + e)
+    config.read(conf_file, encoding='UTF-8')
     sections = []
     if section == None:
         sections = config.sections()
@@ -82,127 +61,90 @@ def get_file_conf(conf_file, section=None, option=None):
     else:
         return config.get(section, option)
             
-def get_db_conf(dbname, table, option=None):
-    '''
-    DB로부터 설정을 가져오는 함수
-    [To do] @ jycho
-    '''
+def getdbconf(dbname, table, option=None):
     pass
 
-def del_comment(datalist):
-    '''
-    datalist에 #가 포함된 라인만 제거 후 리스트로 리턴
-    '''
+def delcomment(datalist):
     ret = []
     for line in datalist:
         if type(line) == list:
-            line[0] = line[0].replace('\r','')
-            if line[0].strip('\t ')[0] != '#':
+            if line[0].find('#') > -1:
+                pass
+            else:
+                ret.append(line)
+        else:
+            if -1 < str(line).find('#') < 4:
+                pass
+            else:
                 ret.append(line)
     return ret
 
-def get_list_from_csv(fname):
-    '''
-    csv 파일로부터 내용들을 받아 리스트로 반환
-    '''
-    # 파일 존재 여부 확인
-    if os.path.isfile(fname) == False:
-        return -1
-        
-    # 파일 오픈시 예외발생
-    try:
-        f = open(fname, encoding='utf-8')
-    except Exception as e:
-        print('get_list_from_csv() Error : ' + e)
-        return -2
-    
+def getlistfromcsv(fname):
+    f = open(fname)
     reader = csv.reader(f)
     tmp = list(reader)
     f.close()
-    ret = del_comment(tmp)
+    ret = delcomment(tmp)
     return ret
 
-def get_list_from_txt(fname):
-    '''
-    일반 Text파일을 읽어 리스트로 리턴
-    리스트 식별자는 개행문자
-    '''
-    # 경로의 파일이 존재하는지 확인
-    if os.path.isfile(fname) == False:
-        return -1
-    
-    # 파일 오픈시 예외 발생 확인
-    try:
-        f = open(fname, 'r', encoding='utf-8')
-        lines = f.readlines()
-        f.close()
-    except Exception as e:
-        print("get_list_from_txt() Error : %s"%e)
-        return -1
-    
-    # 주석 라인 제거
-    return del_comment(lines)
+def getlistfromtxt(fname):
+    f = open(fname)
+    lines = f.readlines()
+    f.close()
+    ret = []
+    ret = delcomment(lines)
+    return ret
 
-def get_server_list_csv(fname):
-    '''
-    서버목록 CSV 파일에서 List 추출
-    '''
-    org = get_list_from_csv(fname)
-    cols = ['name','svc_type','host','port','userid','passwd','svcnum']
-    lines = []
+def getsvrlistcsv(fname):
+    org = getlistfromcsv(fname)
+    cols=['name','svc_type','host','port','userid','passwd']
 
+    temp = []
     for row in org:
-        #if len(row) < len(cols) :
-        #    continue
-        if row[1].lower() not in ['ssh','telnet','ftp','sftp']:
+        if len(row) < len(cols) :
+            continue
+        if 4 > row[0].find('#') > -1:
+            continue
+        if row[1].upper() not in ['SSH','TELNET','FTP']:
             continue
         if not chk_valip(row[2]):
             continue
         if not chk_intsize(row[3], 1, 65534):
             continue
-        lines.append(row) 
-    return lines
+        temp.append(row) 
+    return temp
 
-def get_server_list_db():
-    '''
-    NIY(Not Implemented Yet)
-    db로부터 서버 목록을 가져와 list로 반환한다.
-    '''
-    conf = get_file_conf(CONF_PATH)
+def getsvrlistdb():
+    conf = getfileconf(CONF_PATH)
     columns = conf['Tables']['server_list_cols'].split(',')
-    result = []
-    
-    if conf['Common']['cfgtype'].lower() != 'db':
-        return result
-
-    dbc = DBCtrl()
-    if dbc.connect() == -1:
-        return -1
-    
-    slist = dbc.select(conf['DB']['db'],
-                        conf['Tables']['server_list_tbl'],
-                        cols=columns)
-    dbc.close()
-    
-    for i, row in enumerate(slist):
-        temp = []
-        for j, col in enumerate(columns):
-            temp.append(row[j])
-        result.append(temp)
-
-    return result
-
-def get_remote_file_list(self, path, client=None):
+    if conf['Common']['cfgtype'].lower() == 'db':
+            dbc = DBCtrl()
+            if dbc.connect() != -1:
+                slist = dbc.select(conf['DB']['db'],
+                                     conf['Tables']['server_list_tbl'],
+                                     cols=columns)
+                dbc.close()
+                result = []
+                for i, row in enumerate(slist):
+                    temp = []
+                    for j, col in enumerate(columns):
+                        temp.append(row[j])
+                    result.append(temp)
+                return result
+            else:
+                return -1
+#수정 필요
+def getfileslist(self, path, client=None):
         '''
-        NIY(Not Implemented Yet)
-        원격지에 파일 목록을 가져와 리스트로 반환한다.
+        path에 해당되는 디렉토리내 모든 파일 및 디렉토리 목록을 리턴한다.
+        client를 입력받을 경우 원격지의 path에 대해서 수행한다.
         :param path: 디렉토리 경로
         :param client: ssh client object
         '''
         flist = []
         if client != None:
             cmd = "file `find %s`|grep -v directory" % path
-            ret = self.run_cmd(client, cmd)
+            ret = self.runcmd(client, cmd)
             if len(ret['stdout'][0]) > 0:
                 for line in ret['stdout'][0]:
                     flist.append(line.strip(':')[0])
@@ -212,10 +154,9 @@ def get_remote_file_list(self, path, client=None):
                     flist.append(dpath + os.sep + fn)
         return flist
 
-
-def get_local_path(self, path):
+# 수정 필요
+def getlocalpath(self, path):
     '''
-    NIY(Not Implemented Yet)
     path가 존재하는지 파일인지 디렉토리인지 확인하고 디렉토리일경우 디렉토리 하위의 모든 파일들을 리턴한다.
     path의 파일명에 와일드카드(*,?)가 존재할경우 다수의 파일목록을 리턴한다.
     '''
@@ -224,7 +165,7 @@ def get_local_path(self, path):
     bname = os.path.basename(path)
     # Check whether the path is a directory
     if os.path.isdir(path):
-        flist = self.get_fileslist(path)
+        flist = self.getfileslist(path)
         return flist
 
     # whether path is a file
@@ -254,7 +195,7 @@ def get_local_path(self, path):
             if re.fullmatch(patt, fn) != None:
                 tmppath = dname + os.sep + fn
                 if os.path.isdir(tmppath):
-                    flist += self.get_fileslist(tmppath)
+                    flist += self.getfileslist(tmppath)
                 elif os.path.isfile(tmppath):
                     flist.append(tmppath)
                 else:
@@ -262,14 +203,7 @@ def get_local_path(self, path):
         return flist
     return flist
 
-def rotator(values):
-    '''
-    Values(list)의 값을 무한히 로테이션 시켜주는 기능
-    rotater로 객체 생성 후 next(객체명)으로 뽑아냄
-    ex) 
-    rt = rotator([1,2,3,4,5])
-    next(rt)
-    '''
+def repeater(values):
     i = 0
     while True:
         yield values[i]
@@ -277,109 +211,205 @@ def rotator(values):
         if i >= len(values):
             i = 0
             
-def get_hash(buf, algorithm='sha256'):
-    hash = hashlib.new(algorithm)
-    hash.update(buf.encode())
-    return hash.hexdigest()
+def gethash(buf):
+    result = hashlib.sha256(buf.encode())
+    return result.hexdigest()
 
-def get_hash_bytes(buf, algorithm='sha256'):
-    hash = hashlib.new(algorithm)
-    if type(buf) == str:
-        hash.update(buf.encode())
-    else:
-        hash.update(buf)
-    return hash.digest()
-
-def encode_b64(text):
-    """
-    Text를 Base64로 인코딩
-    """
-    return base64.b64encode(text)
-    
-def get_file_hash(fname):
-    '''
-    파일로부터 해쉬값을 뽑아 str 형태로 리턴함
-    '''
-    try:
-        f = open(fname,'rb')
-        hash = get_hash(f.read())
-        f.close()
-    except Exception as e:
-        print(e)
-        return -1
+def getfilehash(fname):
+    f = open(fname,'rb')
+    hash = gethash(f.read())
+    f.close()
     return hash
 
-def tuple_to_str_list(data):
-    '''
-    튜플형태의 값을 리스트로 리턴함
-    '''
+def tupletostrlist(data):
     ret = []
     for line in data:
         ret.append(line[0])
-        
-def line_to_csv_str(line):
-    '''
-    line을 csv형태의 string으로 변환함
-    line (list) : CSV 형태로 변경할 list
-    return : str + '\n'
-    '''
-    return str(line).strip("[]\'").replace('\'', '').replace(' ','') + '\n'
 
-def print_matrix(contents:list, header=None, padding=1):
+def removeHashTag(text):
     '''
-    2중 리스트(테이블)를 입력 받아 정리된 테이블형태로 출력한다.
-    '''
-    result = []
-    sizelist = [0 for _ in contents[0]]
-    
-    if header == list:
-        contents.insert(0,header)
+    # 문자를 제거
 
-    # 각 컬럼의 최대 크기 측정
-    for row in contents:
-        for i,col in enumerate(row):
-            if sizelist[i] < len(col):
-                sizelist[i] = len(col)
-    
-    # 컬럼 사이즈대로 출력하기
-    for row in contents:
-        line = ''
-        for i,csz in enumerate(sizelist):
-            temp = '{0:^%s}'%(csz+(padding*2))
-            line += temp.format(row[i])
-        print(line)
+    @param
+        text - # 문자를 제거 하고자하는 문자열
+
+    @return
+        # 문자가 제거된 문자열
+    '''
+    removeResult = str(text)
+
+    return removeResult.replace("#","")
+
+def removeLineFeed(text):
+    '''
+    LineFeed 문자를 제거
+
+    @param
+        text - LineFeed를 제거 하고자하는 문자열
+
+    @return
+        LineFeed 문자가 제거된 문자열
+    '''
+
+    removeResult = str(text)
+
+    return removeResult.replace("\n","")
+
+def splitEqual(text):
+    '''
+    = 기준으로 문자열 분리
+
+    @param
+        text - 분리 하고자 하는 문자열
+
+    @return
+        = 기준 상위 문자열 - key
+        = 기준 하위 문자열 - value
+    '''
+    text = str(text)
+    if text.find("=") == -1:
+        return ""
+    else:
+        result = text.replace(" ","").split("=")
+
+        return result
+
+def readFileLines(path):
+    '''
+    파일의 내용 읽기
+
+    @param
+        path - 파일 경로
+
+    @return
+        파일 내용
+    '''
+    if os.path.isfile(path) == False:
+        return ""
+
+    fp = open(path,"r")
+    result = fp.readlines()
+
     return result
 
-def usToB(number:int):
-    """정수를 Unsigned Short(2byte)의 
-    Big endian Binary Byte로 리턴함
+def readFileLine(path):
+    '''
+    파일의 내용 한줄 읽기
 
-    Args:
-        number (int): 바꿀 정수
+    @param
+        path - 파일 경로
 
-    Returns:
-        bytes : 2byte크기의 Binary bytes
-    """
-    return pack('>H',int(number))
+    @return
+        한줄의 파일 내용
+    '''
+    if os.path.isfile(path) == False:
+        return ""
 
-def ipToB(ipaddr:str):
-    """IP주소 -> Big endian Binary bytes 변경
+    fp = open(path,"r")
+    result = fp.readline()
 
-    Args:
-        ipaddr (str): 문자로된 IP주소
+    return result
 
-    Returns:
-        bytes: 문자열 바이너리 바이트
-    """
-    return IPv4Address(ipaddr).packed
-    
-def longToB(num:int):
-    """Unsigned long to Big endian Binary Bytes로 변경
+def readDCConfFile(path):
+    '''
+    DC Config 파일 read
 
-    Args:
-        bytes (str): 4bytes Binary
-    """
-    return pack('>I',int(num))
+    @param
+        path - conf 파일이 저장된 위치
+
+    @return
+        설정값
+    '''
+
+    fp = open(path,"r")
+
+    readLine = fp.readline()
+    result = []
+
+    while readLine:
+        if isComment(readLine) != 1:
+            if isComment(readLine) == 2:
+                readLine = splitHashTag(readLine)
+
+            readLine = removeLineFeed(readLine)
+            split_result = splitEqual(readLine)
+            if len(split_result) != 0:
+                result.append(split_result)
+        else:
+            pass
+
+        readLine = fp.readline()
+
+    return dict(result)
+
+def isComment(content):
+    '''
+    주석 여부 확인
+
+    @parma
+        content - 주석 여부 확인 수행하는 문장
+
+    @return
+        0 -> noComment
+        1 -> isComment
+        2 -> content + comment
+    '''
+    if len(content) == 0:
+        return 0
+
+    string_to_ascii = [ord(c) for c in content]
+
+    # 시작부터 주석처리가 되어 있는 경우
+    if(string_to_ascii[0] == 35):
+        return 1
+
+    # statement 뒤에 주석 처리가 되어 있는 경우
+    for i in range(len(string_to_ascii)):
+        if(i > 0):
+            if(string_to_ascii[i] == 35):
+                return 2
+
+    return 0
+
+def splitHashTag(text):
+    '''
+    # 기준으로 문자열 분리
+
+    @param
+        text - 분리 하고자 하는 문자열
+
+    @return
+        # 기준 상위의 있는 문자열
+    '''
+    text = str(text)
+    if text.find("#") == -1:
+        return ""
+    else:
+        result = text.replace(" ", "").split("#")
+
+        # 주석 처리가 되어 있지 않은 부분 반환
+        return result[0]
+
+def adjustLength(original_list,comparision_target):
+    '''
+    비교 대상의 리스트 길이 조정
+
+    @param
+        original_list - 비교 기준인 리스트
+        comparision_target - 비교가 되는 리스트
+
+    @return
+        길이 차이 만큼 0이 추가된 comparision_target 반환
+    '''
+    if len(original_list) != len(comparision_target):
+        diff = len(original_list) - len(comparision_target)
+        if diff > 0:
+            for i in range(diff):
+                comparision_target.append(0)
+        else:
+            pass
+
+    return comparision_target
 
 if __name__ == '__main__':
     pass
