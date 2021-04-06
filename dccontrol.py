@@ -1722,18 +1722,491 @@ class WebControl:
 
         return True
 
-    def serverBasicInfo(self):
+    def encryptDirectory(self,name=[]):
+        '''
+        암호화 디렉토리 설정을 위한 서버 목록 선택
+
+        @param
+            name - 설정할 서버 목록
+
+        @return
+            True - 성공
+            False - 실패
+        '''
+        # todo
+        server_list = WebControl.getServerList(self)
+
+        if len(server_list) == 0:
+            return False
+
+        try:
+            for i in range(len(name)):
+                index = server_list.index(name[i]) + 1
+                self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/article/div/div[2]/div/div[2]/div[2]/div/table/tbody/tr[%d]/td[1]/input"%(index)))).click()
+
+        except Exception as e:
+            #todo:logging
+            print("암호화 디렉토리 선택 실패!")
+            return False
+
+        return True
+
+    def setAutoBootOn(self,name = [],path=""):
+        '''
+        서버별 암호화 디렉토리 요소 중 부팅시 자동 실행 기능 설정
+        '''
+        # todo
+        if WebControl.setSeverView(self) == False:
+            return False
+
+        if WebControl.encryptDirectory(self,name) == False:
+            return False
+
+        if len(path) == 0:
+            return False
+
+        try:
+            pass
+        except Exception as e:
+            #todo:logging
+            print(e)
+            return False
+
+        return True
+
+    def setAutoBootOff(self,name = [],path=""):
+        '''
+        서버별 암호화 디렉토리 요소 중 부팅시 자동 실행 기능 미 설정
+        '''
+        # todo
+        if WebControl.setSeverView(self) == False:
+            return False
+
+        if WebControl.encryptDirectory(self, name) == False:
+            return False
+
+        if len(path) == 0:
+            return False
+
+        try:
+            pass
+        except Exception as e:
+            # todo:logging
+            print(e)
+            return False
+
+        return True
+
+    def useEncryptedDir(self,name = [],path=""):
+        '''
+        서버별 암호화 디렉토리 요소 중 정책 사용
+        '''
+        # todo
+        if WebControl.setSeverView(self) == False:
+            return False
+
+        if WebControl.encryptDirectory(self, name) == False:
+            return False
+
+        if len(path) == 0:
+            return False
+
+        try:
+            pass
+        except Exception as e:
+            # todo:logging
+            print(e)
+            return False
+
+        return True
+
+    def unUseEncryptedDir(self,name = [],path=""):
+        '''
+        서버별 암호화 디렉토리 요소 중 정책 미사용
+        '''
+        # todo
+        if WebControl.setSeverView(self) == False:
+            return False
+
+        if WebControl.encryptDirectory(self, name) == False:
+            return False
+
+        if len(path) == 0:
+            return False
+
+        try:
+            pass
+        except Exception as e:
+            # todo:logging
+            print(e)
+            return False
+
+        return True
+
+    def addEncryptedDir(self,name = [],mode = 1,option=3,dir_path="",target_file="",pattern="",cycle=1,action=1,file_add_mode=0):
+        '''
+        서버별 암호화 디렉토리 정책 추가
+
+        @param
+            name - 서버 명
+            mode - 설치 유형(기본값 1)
+                    * 1 - 커널, 2 - API, 3 - Agent
+            option - 추가 옵션(기본값 1)
+                    * 1 - 암호화, 2 - 부팅 자동 사용, 3 - 암호화 + 부팅 자동 사용
+            dir_path - 디렉토리 경로
+            target_file - 대상 파일
+            pattern - 문자열 패턴
+            cycle - 동작 주기
+            action - 동작 방식(기본값 1)
+                    * 1 - 파일내 패턴 암호화, 2 - 파일내 전체 암호화, 3 - 패턴 암호화 후 별도 파일에 추가, 4 - 전체 암호화 후 별도 파일에 추가
+            file_add_mode - 동작방식(파일 추가)
+                    * 0 - mode 선택 안함, 1 - 전날 데이터 삭제, 2 - 날짜별 파일 생성, 3 - 전날 데이터 삭제 + 날짜별 파일 생성
+
+        '''
+        if WebControl.setSeverView(self) == False:
+            return False
+
+        if WebControl.encryptDirectory(self, name) == False:
+            return False
+
+        try:
+            self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/article/div[4]/div[2]/div/div[1]/div[1]/div[3]"))).click()
+
+            # 설치 유형 커널 선택
+            if mode == 1 or mode == 2:
+                if len(dir_path) == 0:
+                    raise Exception("경로 설정 안했다!!!!!")
+                # 설치 유형 API 선택
+                if mode == 2:
+                    self.wait.until(EC.element_to_be_clickable(
+                        (By.XPATH, "/html/body/div/div[2]/div[2]/div[2]/div[2]/div[2]/div/label/input"))).click()
+                # 디렉토리 경로 찾는거 추가
+            # 설치 유형 Agent 선택
+            elif mode == 3:
+                if len(target_file) == 0:
+                    raise Exception("대상 파일 적용 안됐다!!!")
+                elif len(pattern) == 0:
+                    raise Exception("패턴 적용 안했다!!!")
+
+                self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[2]/div[2]/div[3]/label/input"))).click()
+
+                if WebControl.setEncryptAction(self,action,file_add_mode) == False:
+                    raise Exception("동작 방식 설정 오류!!!")
+                if WebControl.setEncryptedTargetFile(self,target_file) == False:
+                    raise Exception("대상 파일 설정 오류!!!!")
+                if action == 1 or action == 3:
+                    if WebControl.setStringPattern(self, pattern) == False:
+                        raise Exception("문자열 패턴 설정 오류!!!!")
+                if WebControl.setCycle(self,cycle) == False:
+                    raise Exception("동작 주기 설정 오류!!!")
+            else:
+                raise Exception("설치 유형 잘못 선택 했다!!!!")
+
+            # 추가 옵션 전체 선택
+            if option == 3:
+                pass
+            # 추가 옵션 암호화 사용
+            elif option == 1:
+                self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[7]/div[2]/div[2]/label/input"))).click()
+            # 추가 옵션 부팅 시 자동 사용
+            elif option == 2:
+                self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[7]/div[2]/div[1]/label/input"))).click()
+            # 추가 옵션 사용 안함
+            elif option == 0:
+                self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[7]/div[2]/div[1]/label/input"))).click()
+                self.wait.until(EC.element_to_be_clickable((By.XPATH, "/html/body/div/div[2]/div[2]/div[7]/div[2]/div[2]/label/input"))).click()
+            else:
+                raise Exception("옵션 선택 잘못 했다!!!!")
+
+            self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[3]/div/button[1]"))).click()
+            time.sleep(1)
+            ActionChains(self.driver).send_keys(Keys.ENTER).perform()
+            time.sleep(1)
+            ActionChains(self.driver).send_keys(Keys.ENTER).perform()
+
+        except Exception as e:
+            #todo:logging
+            print("암호화 디렉토리 추가 실패!")
+            return False
+
+        return True
+
+    def removeEncryptedDir(self,name = []):
+        '''
+        서버별 암호화 디렉토리 정책 삭제
+        '''
+        if WebControl.setSeverView(self) == False:
+            return False
+
+        if WebControl.encryptDirectory(self, name) == False:
+            return False
+
+        # 부팅시 머시깽이 오프
+        # 사용 여부 미사용 처리
+        # 그리고 삭제 가능
+
+    def setEncryptedDirPath(self,path):
+        '''
+        디렉토리 경로 설정(커널, API)
+
+        @param
+            path -
+
+        @return
+        '''
         pass
 
-    def encryptDirectory(self,path):
-        ####test code
-        self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/article/div[3]/div[2]/div/div[2]/div[2]/div/table/tbody/tr[1]/td[1]/input"))).click()
-        # 추가 버튼
-        self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/article/div[4]/div[2]/div/div[1]/div[1]/div[3]"))).click()
-        self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[5]/div[2]/button"))).click()
-        self.driver.find_element_by_id(path).click()
-        time.sleep(1)
-        pass
+    def setEncryptedTargetFile(self,target):
+        '''
+        대상 파일 적용(Agent)
+
+        @param
+            target - 대상 파일 명
+
+        @return
+        '''
+        if WebControl.checkDuplicateTargetFile(self,target) == False:
+            return False
+
+        try:
+            self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[2]/div[2]/div[1]/input"))).send_keys(target)
+            self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[2]/div[2]/div[1]/button"))).click()
+        except Exception as e:
+            #todo:logging
+            print(e)
+            return False
+
+        return True
+
+    def setStringPattern(self,pattern):
+        '''
+        문자열 패턴 적용(Agent)
+
+        @param
+            pattern - 문자열 패턴
+        '''
+        if WebControl.checkDuplicatePattern(self,pattern) == False:
+            return False
+
+        try:
+            self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[3]/div[2]/div[1]/input"))).send_keys(pattern)
+            self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[3]/div[2]/div[1]/button[1]"))).click()
+        except Exception as e:
+            #todo:logging
+            print(e)
+            return False
+
+        return True
+
+    def checkDuplicateTargetFile(self,name):
+        '''
+        대상 파일 중복 검사
+
+        @param
+            name - 중복 존재를 판별 하고자하는 대상 파일
+
+        @return
+            True - 중복이 아닌 경우
+            False - 중복, 예외
+        '''
+        target_list = WebControl.getTargetFileList(self)
+
+        if len(target_list) == 0:
+            return True
+
+        if target_list.count(name) == 0:
+            return True
+
+        return False
+
+    def checkDuplicatePattern(self,pattern):
+        '''
+        문자열 패턴 중복 검사
+
+        @param
+            pattern - 중복 존재를 판별 하고자하는 문자열 패턴
+
+        @return
+            True - 중복이 아닌 경우
+            False - 중복, 예외
+        '''
+        target_list = WebControl.getPatternList(self)
+
+        if len(target_list) == 0:
+            return True
+
+        if target_list.count(pattern) == 0:
+            return True
+
+        return False
+
+    def getTargetFileList(self):
+        '''
+        타겟 파일 리스트 확인
+
+        @return
+            타겟 파일 리스트
+        '''
+        target_list = []
+        try:
+            row = self.driver.find_elements(By.XPATH,
+                                            "/html/body/div/div[2]/div[2]/div[6]/div[2]/div[2]/div[2]/select")
+
+            target_list = [i.get_attribute("value") for i in row]
+        except Exception as e:
+            # todo:logging
+            print(e)
+
+        return target_list
+
+    def getPatternList(self):
+        '''
+        문자열 패턴 리스트 확인
+
+        @return
+            문자열 패턴 리스트
+        '''
+        pattern_list = []
+        try:
+            row = self.driver.find_elements(By.XPATH,
+                                            "/html/body/div/div[2]/div[2]/div[6]/div[3]/div[2]/div[2]/select")
+
+            pattern_list = [i.get_attribute("value") for i in row]
+        except Exception as e:
+            #todo:logging
+            print(e)
+
+        return pattern_list
+
+    def removeStringPattern(self,name = []):
+        '''
+        문자열 패턴 삭제(Agent)
+
+        @param
+            pattern - 삭제하고자하는 문자열 패턴
+
+        @return
+        '''
+        if len(name) == 0:
+            return False
+
+        target_list = WebControl.getPatternList(self)
+
+        if len(target_list) == 0:
+            return False
+
+        try:
+            for i in range(len(name)):
+                index = target_list.index(name[i]) + 1
+                self.wait.until(EC.element_to_be_clickable((By.XPATH,
+                                                            "/ html / body / div / div[2] / div[2] / div[6] / div[3] / div[2] / div[2] / select / option[%d]" % (
+                                                                index)))).click()
+                self.wait.until(EC.element_to_be_clickable(
+                    (By.XPATH, "/html/body/div/div[2]/div[2]/div[6]/div[3]/div[2]/div[2]/div/button"))).click()
+
+        except Exception as e:
+            # todo:logging
+            print(e)
+            return False
+
+        return True
+
+    def removeEncryptedTargetFile(self,name = []):
+        '''
+        대상 파일 삭제(Agent)
+
+        @param
+            name - 삭제하고자하는 대상 파일 목록
+
+        @return
+        '''
+        if len(name) == 0:
+            return False
+
+        target_list = WebControl.getTargetFileList(self)
+
+        if len(target_list) == 0:
+            return False
+
+        try:
+            for i in range(len(name)):
+                index = target_list.index(name[i]) + 1
+                self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[2]/div[2]/div[2]/select/option[%d]"%(index)))).click()
+                self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[2]/div[2]/div[2]/button"))).click()
+
+        except Exception as e:
+            #todo:logging
+            print(e)
+            return False
+
+        return True
+
+    def setCycle(self,option,action_cycle=1):
+        '''
+        동작 주기 설정
+
+        @param
+
+        '''
+        if option < 1 or option > 7:
+            return False
+
+        if action_cycle < 1 or action_cycle > 86400:
+            return False
+
+        try:
+            self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[4]/div[2]/select"))).click()
+            # 동작 주기 별 설정
+            self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[4]/div[2]/select/option[%d]"%(option)))).click()
+
+            if option == 7:
+                self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[4]/div[2]/label/input"))).send_keys(action_cycle)
+
+        except Exception as e:
+            #todo:logging
+            print(e)
+            return False
+
+        return True
+
+    def setEncryptAction(self,action,mode):
+        '''
+        동작 방식 설정
+
+        @param
+
+        '''
+        if action < 1 or action > 4:
+            return False
+
+        if mode < 0 or mode > 3:
+            return False
+
+        try:
+            self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[1]/div[2]/select"))).click()
+            self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[1]/div[2]/select/option[%d]"%(action)))).click()
+
+            if action == 3 or action == 4:
+                if mode == 0:
+                    pass
+                # 전날 데이터 삭제
+                elif mode == 1:
+                    self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[1]/div[2]/div[2]/label/input"))).click()
+                # 날짜별 파일 생성
+                elif mode == 2:
+                    self.wait.until(EC.element_to_be_clickable((By.XPATH, "/html/body/div/div[2]/div[2]/div[6]/div[1]/div[2]/div[3]/label/input"))).click()
+                elif mode == 3:
+                    self.wait.until(EC.element_to_be_clickable((By.XPATH,"/html/body/div/div[2]/div[2]/div[6]/div[1]/div[2]/div[2]/label/input"))).click()
+                    self.wait.until(EC.element_to_be_clickable((By.XPATH, "/html/body/div/div[2]/div[2]/div[6]/div[1]/div[2]/div[3]/label/input"))).click()
+                else:
+                    pass
+
+        except Exception as e:
+            #todo:logging
+            print(e)
+            return False
+
+        return True
 
 if __name__ == '__main__':
     c = WebControl()
@@ -1748,7 +2221,7 @@ if __name__ == '__main__':
     # c.stopServer(["linux"], 3)
     # c.removeServerObject(["asdf","linux"])
     # c.removeServerObject()
-    c.encryptDirectory("C:\home\ENC0")
+    c.addEncryptedDir(["linux","asdf"],mode=3,target_file="/home/seong",pattern="ddd",action=3,cycle=3,option=1,file_add_mode=2)
     # c.encryptDirectory("C:\home\ENC0")
     # c.setPolicyView()
     # c.addAccessPolicy("test1")
@@ -1833,5 +2306,4 @@ if __name__ == '__main__':
     # #c.addPolicy()
     # #time.sleep(2)
     # #c.getDecryptPolicyList()
-    c.closeDrive()
-
+   
