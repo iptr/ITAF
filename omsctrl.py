@@ -4,6 +4,7 @@ from commonlib import *
 
 OMS_DMS_PORT = 50011
 MAX_RECV_SIZE = 4096
+UNIKEY = b'87443DE767DDB0BEDD5D7EDE8B79A923490FF50FC0DA8D2513869BA73132D4C1'
 TIME_OUT_SEC = 100
 
 #Command code
@@ -78,8 +79,7 @@ class OmsPktMaker:
         return payload
 
     def makeLoginInfo(self, struct_type, sno, pw, privip, pubip, 
-                      name, tel, part, position, business, 
-                      unikey):
+                      name, tel, part, position, business):
         '''
         로그인 패킷 만들때 명령어 뒷부분에 붙는 내용
         Struct_type : 구조체 종류 (unikey, v4, ex)
@@ -118,7 +118,7 @@ class OmsPktMaker:
         
         payload += usToB(len(privip)) + privip.encode()
         print('privip Len :', ba.hexlify(usToB(len(privip))))
-        print('privip :', ba.hexlify(privip.encode()),'\n')
+        print('privip :', ba.hexlify(privip.encode()))
         
         strtype = struct_type.lower()
         if strtype in ('unikey','v4') :
@@ -128,7 +128,7 @@ class OmsPktMaker:
             
             #payload += encode_b64(get_hash_bytes(unikey.encode()))
             #print('unikey : ', ba.hexlify(encode_b64(get_hash_bytes(unikey.encode()))), '\n')
-            payload += b'87443DE767DDB0BEDD5D7EDE8B79A923490FF50FC0DA8D2513869BA73132D4C1'
+            payload += self.unikey
             #print('unikey : ', ba.hexlify(bytes.fromhex(hex_var)))
             
             self.login_info = payload    
@@ -152,14 +152,15 @@ class OmsPktMaker:
                 #login_tool
                 payload += longToB(0)
                 print('Login Tool', ba.hexlify(longToB(0)))
-                print('\n')
+                
                 
                 self.logininfo = payload
+        print('\n')
         return payload
         
     def makeEnvUnikeyInfo(self, env_ip, mac_address, lan_count,
                           nat_version, com_name, cpu_info, mem_info,
-                          ipaddr, unikey):
+                          ipaddr):
         payload = usToB(len(env_ip)) + env_ip.encode()
         payload += usToB(len(mac_address)) + mac_address.encode()
         payload += usToB(len(lan_count)) + lan_count.encode()
@@ -168,8 +169,7 @@ class OmsPktMaker:
         payload += usToB(len(cpu_info)) + cpu_info.encode()
         payload += usToB(len(mem_info)) + mem_info.encode()
         payload += usToB(len(ipaddr)) + ipaddr.encode()
-        unikey = b'87443DE767DDB0BEDD5D7EDE8B79A923490FF50FC0DA8D2513869BA73132D4C1'
-        payload += usToB(64) + unikey
+        payload += usToB(64) + self.unikey
         self.env_unikey_info = payload
         return payload
 
@@ -183,6 +183,7 @@ class OmsPktSender:
         
     def __init__(self):
         self.pkt_maker = OmsPktMaker()
+        
         
     def setConf(self, host, sno, pw, privip, pubip,
                 name, tel, part, position, business,
@@ -206,26 +207,32 @@ class OmsPktSender:
         self.cpu = cpu
         self.mem = mem
         self.ipaddr = ipaddr
-        self.unikey = 'unikey'
+        self.unikey = UNIKEY
         self.conf_flag = True
         
     def connect(self):
+        '''
+        Make Connection to Target OMS_DMS
+        
+        @return
+            
+        '''
         sock = skt.socket(skt.AF_INET, skt.SOCK_STREAM)
         sock.settimeout(TIME_OUT_SEC)
         sock.connect((self.host, OMS_DMS_PORT))    
         return sock
     
     def sendPacket(self, step_num):
-        funclist = [[self.makeVersionReqPkt, 
-                     self.makePolicyReqPkt],
+        funclist = [[self.makeVersionReqPkt], 
+                     [self.makePolicyReqPkt],
                      [self.makeIPCheckReqPkt],
-                    [self.makeLoginUnikeyReqPkt,
-                     self.makeLoginReqPkt,
-                     self.makeSaveEnvReqPkt],
-                    [self.makeSerialCheckReqPkt,
-                     self.makeServiceReqPkt],
-                    [self.makeLoopBackMsgReqPkt,
-                     self.makeLogoutReqPkt]]
+                    [self.makeLoginUnikeyReqPkt],
+                     [self.makeLoginReqPkt],
+                     [self.makeSaveEnvReqPkt],
+                    [self.makeSerialCheckReqPkt],
+                     [self.makeServiceReqPkt],
+                    [self.makeLoopBackMsgReqPkt],
+                     [self.makeLogoutReqPkt]]
         ret_data = []
         sock = self.connect()
     
@@ -283,8 +290,7 @@ class OmsPktSender:
                                                 self.tel,
                                                 self.part,
                                                 self.position,
-                                                self.business,
-                                                self.unikey)
+                                                self.business)
         return payload
         
     def makeLoginReqPkt(self):
@@ -301,8 +307,7 @@ class OmsPktSender:
                                                 self.tel,
                                                 self.part,
                                                 self.position,
-                                                self.business,
-                                                self.unikey)
+                                                self.business)
         return payload
 
     def makeSaveEnvReqPkt(self):       
@@ -317,8 +322,7 @@ class OmsPktSender:
                                                     self.comname,
                                                     self.cpu,
                                                     self.mem,
-                                                    self.ipaddr,
-                                                    self.unikey)
+                                                    self.ipaddr)
         return payload
         
     def makeSerialCheckReqPkt(self):
@@ -335,8 +339,7 @@ class OmsPktSender:
                                                 self.tel,
                                                 self.part,
                                                 self.position,
-                                                self.business,
-                                                self.unikey)
+                                                self.business)
         return payload
     
     def makeServiceReqPkt(self):
@@ -353,8 +356,7 @@ class OmsPktSender:
                                                 self.tel,
                                                 self.part,
                                                 self.position,
-                                                self.business,
-                                                self.unikey)
+                                                self.business)
         return payload
                       
     def makeLoopBackMsgReqPkt(self):
@@ -378,8 +380,7 @@ class OmsPktSender:
                                                 self.tel,
                                                 self.part,
                                                 self.position,
-                                                self.business,
-                                                self.unikey)
+                                                self.business)
         return payload    
 
 def prepareTest():
