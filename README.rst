@@ -9,8 +9,7 @@ SSH(SFTP), Telnet, FTP와 같은 프로토콜을 사용하여 Target Service로 
 Installation
 ------------
 
-설치따윈 필요없지만
-paramiko와 pymysql의 설치는 필요하다.
+paramiko와 pymysql의 설치가 필요하다.
 
 
 RPM family (CentOS, RHEL...)
@@ -51,14 +50,12 @@ See the available commands
 
 ::
 
-  그딴거 없다.
 
 To get help on each individual command
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
-  헬프따윈 없다.
 
 
 Recommended way to use this version of Python
