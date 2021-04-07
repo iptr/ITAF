@@ -317,4 +317,5 @@ if __name__ == '__main__':
     # inputTab()
     # inputTab()
     # inputTab()
-    print(pyautogui.getInfo())
+    #print(pyautogui.getInfo())
+    pass
