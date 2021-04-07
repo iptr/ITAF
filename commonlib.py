@@ -10,6 +10,7 @@ import hashlib
 import base64
 import configparser as cp
 from struct import pack
+from struct import unpack
 from ipaddress import IPv4Address
 from dbctrl import *
 
@@ -383,3 +384,18 @@ def longToB(num:int):
 
 if __name__ == '__main__':
     pass
+
+def byteToNum(bytestr:bytes, sign=False):
+    if len(bytestr) == 1:
+        format = '>B'
+    elif len(bytestr) == 2:
+        format = '>H'
+    elif len(bytestr) == 4:
+        format = '>I'
+    elif len(bytestr) == 8:
+        format = '>Q'
+    else:
+        return None
+    if sign:
+        format.lower()
+    return unpack(format, bytestr)[0]

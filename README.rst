@@ -12,7 +12,6 @@ Overview
 Installation
 ------------
 
-설치따윈 필요없지만
 paramiko와 pymysql의 설치는 필요하다.
 
 
@@ -54,14 +53,12 @@ See the available commands
 
 ::
 
-  그딴거 없다.
 
 To get help on each individual command
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
-  헬프따윈 없다.
 
 
 Recommended way to use this version of Python
