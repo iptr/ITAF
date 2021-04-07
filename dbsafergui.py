@@ -5,7 +5,7 @@ DEFAULTICONPATH = "icon/"
 class Dbsafergui:
     def __init__(self):
         pass
-
+ 
     def start(self,path):
         '''
         DBSAFER Manger 시작
@@ -37,6 +37,7 @@ class Dbsafergui:
             False - 실패
         '''
         try:
+            #todo: conf 파일 활용 여부 고려
             # 이미지 찾기를 이용하여 ip 입력
             cursor = winguicommon.findLocationPicture(DEFAULTICONPATH+"log_in_ip.png")
             winguicommon.clickMouse(cursor)
@@ -176,9 +177,9 @@ class Dbsafergui:
 
 if __name__ == '__main__':
     a = Dbsafergui()
-    a.login()
-    # a.viewControlPolicy()
-    # a.viewControlObject()
-    # a.viewMonitoring()
-    # a.viewSetting()
-    # a.viewLog()
+    # a.login()
+    a.viewControlPolicy()
+    a.viewControlObject()
+    a.viewMonitoring()
+    a.viewSetting()
+    a.viewLog()
