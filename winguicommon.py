@@ -319,5 +319,3 @@ if __name__ == '__main__':
     # inputTab()
     # inputTab()
     print(pyautogui.getInfo())
-    fw = pyautogui.getActiveWindow()
-    print(fw.width)
