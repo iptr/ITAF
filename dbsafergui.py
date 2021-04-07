@@ -5,7 +5,7 @@ DEFAULTICONPATH = "icon/"
 class Dbsafergui:
     def __init__(self):
         pass
- 
+
     def start(self,path):
         '''
         DBSAFER Manger 시작

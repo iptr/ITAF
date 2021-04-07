@@ -312,7 +312,6 @@ def inputEsc():
 if __name__ == '__main__':
     #moveCursor((1200,100))
     #clickMouse(0,0)
-    #a = findLocationPicture("스크린샷, 2021-04-07 13-40-25.png")
     #clickMouse()
     # inputTab()
     # inputTab()
