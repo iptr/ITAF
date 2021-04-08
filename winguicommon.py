@@ -1,6 +1,10 @@
 import subprocess
 import pyscreenshot
 import pyautogui
+import time
+import win32api
+from win32 import win32gui
+
 
 def runWindowCommand(command=""):
     '''
@@ -61,7 +65,8 @@ def runExe(path=""):
     '''
     try:
         # 지정된 경로에 있는 응용 프로그램 실행
-        subprocess.call(path)
+        win32api.ShellExecute(0,'open',path,'','',1)
+        time.sleep(5)
     except Exception as e:
         #todo:logging
         print(e)
@@ -288,6 +293,7 @@ def inputTab():
         False - 실패
     '''
     try:
+        # tab 입력
         pyautogui.press('tab')
     except Exception as e:
         return False
@@ -303,19 +309,54 @@ def inputEsc():
         False - 실패
     '''
     try:
+        # esc 입력
         pyautogui.press('esc')
     except Exception as e:
         return False
 
     return True
 
+def getWindowList():
+    '''
+    현재 띄워져 있는 window 리스트 확인
+
+    @return
+        output - 윈도우 타이틀 리스트
+    '''
+    def callback(hwnd, hwnd_list: list):
+        # 창의 타이틀 확인
+        title = win32gui.GetWindowText(hwnd)
+        # 사용 가능한 창의 정보 리스트에 저장
+        if win32gui.IsWindowEnabled(hwnd) and win32gui.IsWindowVisible(hwnd) and title:
+            hwnd_list.append(title)
+        return True
+    output = []
+    win32gui.EnumWindows(callback, output)
+    return output
+
+def checkTargetWindow(processName=""):
+    '''
+    찾고자 하는 창의 유무 확인
+
+    @param
+        processName - 찾고자 하는 창의 이름
+
+    @return
+        True - 존재
+        False - 존재하지 않음
+    '''
+    handler_list = []
+    try:
+        # 현재 윈도우 종류 확인
+        handler_list = getWindowList()
+        # 찾고자 하는 윈도우가 있는지 확인
+        if handler_list.count(processName) != 0:
+            return True
+        else:
+            return False
+    except Exception as e:
+        return False
+
+
 if __name__ == '__main__':
-    #moveCursor((1200,100))
-    #clickMouse(0,0)
-    #clickMouse()
-    # inputTab()
-    # inputTab()
-    # inputTab()
-    # inputTab()
-    #print(pyautogui.getInfo())
-    pass
+    resizeWindow()
