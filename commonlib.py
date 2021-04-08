@@ -395,7 +395,7 @@ def byteToNum(bytestr:bytes, sign=False):
     elif len(bytestr) == 8:
         format = '>Q'
     else:
-        return None
+        return 0
     if sign:
         format.lower()
-    return unpack(format, bytestr)[0]
+    return int(unpack(format, bytestr)[0])
