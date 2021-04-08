@@ -1,6 +1,9 @@
 import winguicommon
+import dbsaferguiutil
 
-DEFAULTICONPATH = "icon/"
+DEFAULTICONPATH = "C:\\Users\\pnpsecure\\Desktop\\icon\\"
+MANAGERPATH = r"C:\Program Files\PNP SECURE\Enterprise Manager 7\Enterprise Manager.exe"
+
 #TODO : 여러 가지 방향성을 조금 더 고민해 보아야 할 필요가 있다.
 class Dbsafergui:
     def __init__(self):
@@ -17,13 +20,8 @@ class Dbsafergui:
             True - 성공
             False - 실패
         '''
-        if winguicommon.runExe(path) == False:
-            return False
-        try:
-            # 디바이스 변경 허용 '예' 클릭
-            cursor = winguicommon.findLocationPicture(DEFAULTICONPATH+"yes.png")
-            winguicommon.clickMouse(cursor)
-        except Exception as e:
+        if dbsaferguiutil.runManager(path) == False:
+            print("run 실패")
             return False
 
         return True
@@ -35,39 +33,40 @@ class Dbsafergui:
         @return
             True - 성공
             False - 실패
-        '''
+       '''
         try:
             #todo: conf 파일 활용 여부 고려
-            # 이미지 찾기를 이용하여 ip 입력
-            cursor = winguicommon.findLocationPicture(DEFAULTICONPATH+"log_in_ip.png")
-            winguicommon.clickMouse(cursor)
-            winguicommon.inputMsg("10.77.161.167")
 
-            # login ID 입력
-            winguicommon.inputTab()
-            winguicommon.inputMsg("heyboy")
+            # 이미지 찾기를 이용하여 id 입력
+            print(DEFAULTICONPATH+"log_in_id.png")
+            cursor = winguicommon.findLocationPicture(DEFAULTICONPATH+"log_in_id.png")
+            winguicommon.clickMouse(cursor)
+            winguicommon.inputMsg("admin")
 
             # login PassWord 입력
             winguicommon.inputTab()
-            winguicommon.inputMsg("dbsafer00")
+            winguicommon.inputMsg("admin007!")
+
+            # login ip 입력
+            winguicommon.inputTab()
+            winguicommon.inputMsg("10.77.162.11")
 
             # Connect 클릭
             cursor = winguicommon.findLocationPicture(DEFAULTICONPATH + "log_in_connect.png")
             winguicommon.clickMouse(cursor)
-
+            
             # 비밀 번호 바꾸라는 경고, 알림 등을 끌 때 사용
-            # TODO : 좌표값을 얻지 않고도 무조건 해당 알림을 종료 할 수 있는 방법을 찾자
-            # TODO : new window 가 발생 했을 때 이벤트를 감지 할 수 있는거 찾아 보자
-                # 1. esc 를 2번 누른다.
-                    # 문제점: 해당 화면(알림)이 언제 뜰지 모른다.
-                # 2. 이미지를 찾아 간다.
-                    # 비밀 번호 바꾸라는 경고가 뜨는경우 안 뜨는 경우를 구분해야 한다.
-                # 3. 좌표값을 찾아 간다.
-                    # 매니저 위치, 크기가 일정하다는 가정이 필요
-            winguicommon.inputEsc()
-            winguicommon.inputEsc()
+            try:
+                if dbsaferguiutil.closeAlarm() == False:
+                    return False
 
+                cursor = winguicommon.findLocationPicture(DEFAULTICONPATH + "menu.png")
+                winguicommon.clickMouse(cursor)
+
+            except Exception as e:
+                raise Exception("이미지 실패!!!")
         except Exception as e:
+            print("이미지 실패!")
             return False
 
         return True
@@ -155,6 +154,7 @@ class Dbsafergui:
         except Exception as e:
             return False
 
+
         return True
 
     def viewSetting(self):
@@ -177,7 +177,8 @@ class Dbsafergui:
 
 if __name__ == '__main__':
     a = Dbsafergui()
-    # a.login()
+    a.start(MANAGERPATH)
+    a.login()
     a.viewControlPolicy()
     a.viewControlObject()
     a.viewMonitoring()
