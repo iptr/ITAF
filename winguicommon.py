@@ -3,7 +3,9 @@ import pyscreenshot
 import pyautogui
 import time
 import win32api
+import keyboard
 from win32 import win32gui
+from pynput import mouse
 
 
 def runWindowCommand(command=""):
@@ -357,6 +359,74 @@ def checkTargetWindow(processName=""):
     except Exception as e:
         return False
 
+def resizeWindow(title = "",x_size=600,y_size=800):
+    '''
+    창 크기 바꾸기
+
+    @param
+        title - 크기를 바꾸고자 하는 창의 타이틀
+        x_size - 가로 크기
+        y_size - 세로 크기
+
+    @return
+        True - 성공
+        False - 실패
+    '''
+    try:
+        # 해당 타이틀에 해당하는 객체 선택
+        win = pyautogui.getWindowsWithTitle(title)[0]
+        # 해당 객체 크기 변경
+        win.resize(x_size,y_size)
+    except Exception as e:
+        print("size 실패!!")
+        return False
+
+    return True
+
+def moveWindow(title = "",x_pos = 0, y_pos = 0):
+    '''
+    창 위치 옮기기
+
+    @param
+        title - 옮기고자 하는 창의 타이틀
+        x_pos - x 좌표
+        y_pos - y 좌표
+
+    @return
+        True - 성공
+        False - 실패
+    '''
+    try:
+        # 해당 타이틀에 해당하는 객체 선택
+        win = pyautogui.getWindowsWithTitle(title)[0]
+        # 해당 객체 이동
+        win.moveTo(x_pos,y_pos)
+    except Exception as e:
+        print("size 실패!!")
+        return False
+
+    return True
+
+def on_click(x,y,button,pressed):
+    '''
+    클릭 하였을 때 마우스 이벤트 지점 확인
+
+    '''
+    if pressed == True:
+        open("mouseTracer.txt","w").close()
+        fp = open("mouseTracer.txt","a")
+        fp.write(str(x)+","+str(y))
+        fp.close()
+
+def mouseTracer():
+    '''
+    마우스 커서 확인
+
+    '''
+    with mouse.Listener(on_click=on_click) as listener:
+        # if keyboard.is_pressed("c"):
+        #     return 0
+        listener.join()
 
 if __name__ == '__main__':
-    resizeWindow()
+    pass
