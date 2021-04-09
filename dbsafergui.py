@@ -54,14 +54,18 @@ class Dbsafergui:
             # Connect 클릭
             cursor = winguicommon.findLocationPicture(DEFAULTICONPATH + "log_in_connect.png")
             winguicommon.clickMouse(cursor)
-            
-            # 비밀 번호 바꾸라는 경고, 알림 등을 끌 때 사용
+
             try:
+                # 비밀 번호 바꾸라는 경고, 알림 등을 끌 때
                 if dbsaferguiutil.closeAlarm() == False:
                     return False
 
-                cursor = winguicommon.findLocationPicture(DEFAULTICONPATH + "menu.png")
-                winguicommon.clickMouse(cursor)
+                # 매니저 내용이 제대로 출력 되지 않은 경우
+                if dbsaferguiutil.checkManagerContent() == False:
+                    return False
+
+                if dbsaferguiutil.initMangerLocation() == False:
+                    return False
 
             except Exception as e:
                 raise Exception("이미지 실패!!!")
@@ -174,6 +178,9 @@ class Dbsafergui:
 
         return True
 
+    def runTestCase(self):
+        # 마우스 트레이서를 이용한 결과를 읽어옴
+        # 결과를 똑같이 따라 가면서 CASE를 실행 시킴
 
 if __name__ == '__main__':
     a = Dbsafergui()
@@ -184,3 +191,68 @@ if __name__ == '__main__':
     a.viewMonitoring()
     a.viewSetting()
     a.viewLog()
+
+# Default 값을 파일에 저장하여 기본적인 기능 테스트시에 Case를 제공(1번)
+# 마우스 좌표값 파일 저장 (2번)
+# 좌표 값 순서대로 클릭 하여 진행
+# 창 크기, 위치를 절대적인 값을 움직여서 항상 객체가 있는곳은 좌표값이 일치함
+# 정책 관리
+    # DBMS
+        # 접속 제어
+            #(72,112)
+            # (150,92)
+            #(172,105)
+        # 권한 제어
+            # (72,112)
+            # (150,92)
+            # (198,120)
+    # FTP
+        # 접속 제어
+            # (72,112)
+            # (153,142)
+            # (172,157)
+        # 권한 제어
+            # (72,112)
+            # (153,142)
+            # (172,168)
+    # 터미널
+        # 접속 제어
+            # (72,112)
+            # (180,188)
+            # (182,202)
+        # 권한 제어
+            # (72,112)
+            # (180,188)
+            # (182,214)
+
+# 객체 관리 (34,136)
+    #서비스(184,93)
+        #DB(177,103)
+        #FTP(177,131)
+        #TERMINAL(177,139)
+    # 인스턴스 169 157
+    # IP 주소 169 167
+    # 접속 계정 169 184
+    # 어플리케이션 162 207
+    # 보안계정 162 225
+    # 데이터마스킹 162 236
+    # 테이블/컬럼 162 250
+    # 정형 쿼리162 268
+    # 시간 162 281
+    # 명령어 162 296
+# 모니터링 (49,177)
+    #서비스 로그
+        # 174 108
+        # 174 118
+        # 174 139
+            #조회 1074 107
+    #기타
+        #관리자 192 170
+        #시스템 192 182
+        #경고 192 203
+            #조회 515 142
+# 로그조회 (45,200)
+
+# 유지 보수(36,237)
+
+# 동작 설정 (36,275)
