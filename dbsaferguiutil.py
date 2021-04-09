@@ -129,3 +129,57 @@ def closeAlarm(limit_time = 30):
         return False
 
     return True
+
+
+def getMangerTitle(window_list):
+    '''
+    매니저 타이틀 취득
+
+    @param
+        window_list - 현재 띄워져 있는 창 리스트
+
+    @return
+        DBSAFER 매니저 타이틀
+    '''
+    index = -1
+    try:
+        for i in range(len(window_list)):
+            # EnterpriseManger 를 얻기위해 split
+            comp = window_list[i].replace(" ", "").split("[")
+
+            # 구분자가 없는 경우
+            if len(comp) != 2:
+                continue
+
+            # 구분자가 존재하며 매니저로 판별 되는 경우
+            if comp[0] == "EnterpriseManager":
+                index = i
+                break
+
+    except Exception as e:
+        print(e)
+        return ""
+
+    if index == -1:
+        return ""
+
+    return window_list[index]
+
+
+def initMangerLocation():
+    '''
+    Manager 구동 후 위치 및 크기 고정
+
+    @return
+        True - 성공
+        False - 실패
+    '''
+    title = getMangerTitle(winguicommon.getWindowList())
+    if winguicommon.resizeWindow(title) == False:
+        return False
+
+    if winguicommon.moveWindow(title) == False:
+        return False
+
+    print("완료 !")
+    return True
