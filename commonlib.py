@@ -96,7 +96,7 @@ def del_comment(datalist):
     '''
     ret = []
     for line in datalist:
-        if type(line) == list:
+        if type(line) == list and len(line) > 0:
             line[0] = line[0].replace('\r','')
             if line[0].strip('\t ')[0] != '#':
                 ret.append(line)
@@ -280,7 +280,10 @@ def rotator(values):
             
 def get_hash(buf, algorithm='sha256'):
     hash = hashlib.new(algorithm)
-    hash.update(buf.encode())
+    if type(buf) == bytes:
+        hash.update(buf)
+    else:
+        hash.update(buf.encode())
     return hash.hexdigest()
 
 def get_hash_bytes(buf, algorithm='sha256'):
@@ -345,7 +348,7 @@ def print_matrix(contents:list, header=None, padding=1):
     # 컬럼 사이즈대로 출력하기
     for row in contents:
         line = ''
-        for i,csz in enumerate(sizelist):
+        for i, csz in enumerate(sizelist):
             temp = '{0:^%s}'%(csz+(padding*2))
             line += temp.format(row[i])
         print(line)

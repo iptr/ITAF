@@ -1,2 +1,11 @@
-# Vuser ID, Config, Scenario
-Vuser01,@vuser01.conf,@vuser01_scenario.csv
+# Vuser ID, Config File, Scenario File
+vuser01,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
+#vuser02,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
+#vuser03,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
+#vuser04,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
+#vuser05,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
+#vuser06,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
+#vuser07,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
+#vuser08,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
+#vuser09,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
+#vuser10,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
