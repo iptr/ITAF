@@ -9,18 +9,18 @@ MAX_RECV_SIZE = 4192
 TIME_OUT_SEC = 30
 
 #Request Command Code
-VERSION_REQ_CODE = 10
-POLICY_REQ_CODE = 21
-LOGIN_UNIKEY_REQ_CODE = 32
-ALIVE_CHECK_REQ_CODE = 1002
-IP_CHECK_REQ_CODE = 1040
-LOGIN_REQ_CODE = 2001
-SAVE_CLIENT_REQ_CODE = 52
-CHECK_SERIAL_REQ_CODE = 72
-SERVICE0111_REQ_CODE = 316
-SERVICE0112_REQ_CODE = 342
-LOOPBACK_REQ_CODE = 407
-LOGOUT_REQ_CODE = 92
+VERSION_REQ = 10
+POLICY_REQ = 21
+LOGIN_UNIKEY_REQ = 32
+ALIVE_CHECK_REQ = 1002
+IP_CHECK_REQ = 1040
+LOGIN_REQ = 2001
+SAVE_CLIENT_REQ = 52
+CHECK_SERIAL_REQ = 72
+SERVICE0111_REQ = 316
+SERVICE0112_REQ = 342
+LOOPBACK_REQ = 407
+LOGOUT_REQ = 92
 
 #Response Command Code
 VERSION_RET = 15
@@ -319,22 +319,22 @@ class OmsPktSender:
     
     def sendPacket(self, step_num):
         funclist = [
-                    [self.makeVersionReq],
+                    [eval('self.makeVersionReq')],
                     
-                    [self.makeVersionReq,
-                     self.makePolicyReq,
-                     self.makeIPCheckReq,],
+                    [eval('self.makeVersionReq'),
+                     eval('self.makePolicyReq'),
+                     eval('self.makeIPCheckReq'),],
                     
-                    [self.makeLoginUnikeyReq,
-                     self.makeLoginReq,
-                     self.makeSaveEnvReq],
+                    [eval('self.makeLoginUnikeyReq'),
+                     eval('self.makeLoginReq'),
+                     eval('self.makeSaveEnvReq')],
                     
-                    [self.makeSerialCheckReq,
-                     self.makeServiceReq,],
+                    [eval('self.makeSerialCheckReq'),
+                     eval('self.makeServiceReq'),],
                     
-                    [self.makeLoopBackMsgReq],
+                    [eval('self.makeLoopBackMsgReq')],
                     
-                    [self.makeLogoutReq]
+                    [eval('self.makeLogoutReq')]
                    ]
         
         ret_data = []
@@ -373,28 +373,28 @@ class OmsPktSender:
         return ret_data
     
     def makeVersionReq(self):
-        payload = self.maker.makeCommandInfo(VERSION_REQ_CODE, 
+        payload = self.maker.makeCommandInfo(VERSION_REQ, 
                                                  COMMAND_LENGTH,
                                                  DEFAULT_STRUCTHASH,
                                                  CHECK_CODE)
         return payload
         
     def makePolicyReq(self):
-        payload = self.maker.makeCommandInfo(POLICY_REQ_CODE,
+        payload = self.maker.makeCommandInfo(POLICY_REQ,
                                                  COMMAND_LENGTH,
                                                  DEFAULT_STRUCTHASH,
                                                  CHECK_CODE)
         return payload
         
     def makeIPCheckReq(self):
-        payload = self.maker.makeCommandInfo(IP_CHECK_REQ_CODE,
+        payload = self.maker.makeCommandInfo(IP_CHECK_REQ,
                                                  COMMAND_LENGTH,
                                                  DEFAULT_STRUCTHASH,
                                                  CHECK_CODE)
         return payload
 
     def makeLoginUnikeyReq(self):
-        payload = self.maker.makeCommandInfo(LOGIN_UNIKEY_REQ_CODE,
+        payload = self.maker.makeCommandInfo(LOGIN_UNIKEY_REQ,
                                              COMMAND_LENGTH,
                                              LOGIN_UNIKEY_STRUCTHASH,
                                              CHECK_CODE)
@@ -411,7 +411,7 @@ class OmsPktSender:
         return payload
         
     def makeLoginReq(self):
-        payload = self.maker.makeCommandInfo(LOGIN_REQ_CODE,
+        payload = self.maker.makeCommandInfo(LOGIN_REQ,
                                              COMMAND_LENGTH,
                                              LOGIN_V4_STRUCTHASH,
                                              CHECK_CODE)
@@ -428,7 +428,7 @@ class OmsPktSender:
         return payload
 
     def makeSaveEnvReq(self):
-        payload = self.maker.makeCommandInfo(SAVE_CLIENT_REQ_CODE,
+        payload = self.maker.makeCommandInfo(SAVE_CLIENT_REQ,
                                             COMMAND_LENGTH,
                                             ENV_UNIKEY_STRUCTHASH,
                                             CHECK_CODE)
@@ -443,7 +443,7 @@ class OmsPktSender:
         return payload
         
     def makeSerialCheckReq(self):
-        payload = self.maker.makeCommandInfo(CHECK_SERIAL_REQ_CODE,
+        payload = self.maker.makeCommandInfo(CHECK_SERIAL_REQ,
                                             COMMAND_LENGTH,
                                             LOGIN_UNIKEY_STRUCTHASH,
                                             CHECK_CODE)
@@ -461,11 +461,11 @@ class OmsPktSender:
     
     def makeServiceReq(self, svcver='0112'):
         if '0111' == svcver:
-            command = SERVICE0111_REQ_CODE
+            command = SERVICE0111_REQ
             struct_type = 'ex'
             struct_hash = LOGIN_EX_STRUCTHASH
         else:
-            command = SERVICE0112_REQ_CODE
+            command = SERVICE0112_REQ
             struct_type = 'v4nopw'
             struct_hash = LOGIN_V4_STRUCTHASH
             
@@ -486,14 +486,14 @@ class OmsPktSender:
         return payload
                       
     def makeLoopBackMsgReq(self):
-        payload = self.maker.makeCommandInfo(LOOPBACK_REQ_CODE,
+        payload = self.maker.makeCommandInfo(LOOPBACK_REQ,
                                              COMMAND_LENGTH,
                                              DEFAULT_STRUCTHASH,
                                              CHECK_CODE)
         return payload
                 
     def makeLogoutReq(self):
-        payload = self.maker.makeCommandInfo(LOGOUT_REQ_CODE,
+        payload = self.maker.makeCommandInfo(LOGOUT_REQ,
                                              COMMAND_LENGTH,
                                              LOGIN_UNIKEY_STRUCTHASH,
                                              CHECK_CODE)
@@ -510,10 +510,12 @@ class OmsPktSender:
         return payload
     
     def makeAliveCheckReq(self):
-        payload = self.maker.makeCommandInfo(ALIVE_CHECK_REQ_CODE,
+        payload = self.maker.makeCommandInfo(ALIVE_CHECK_REQ,
                                              COMMAND_LENGTH,
                                              LOGIN_UNIKEY_STRUCTHASH,
-                                             CHECK_CODE)                                                 
+                                             CHECK_CODE)
+        return payload
+                                                       
 
 class OmsTestData:
     """
