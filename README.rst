@@ -22,17 +22,18 @@ RPM family (CentOS, RHEL...)
 
   yum groupinstall "Development tools"
   yum install zlib-devel bzip2-devel openssl-devel readline-devel ncurses-devel sqlite-devel gdbm-devel db4-devel expat-devel libpcap-devel xz-devel pcre-devel libffi-devel
+  yum install net-tools
 
 
-macOS
+Required python libraries
 ^^^^^
-
-Apple stopped including the OpenSSL development headers in OS X El Captian and macOS Sierra. You will need to install OpenSSL with Homebrew (or MacPorts). This document assumes usage of Homebrew.
 
 ::
 
-  xcode-select --install
-  brew install openssl
+  pip3 install psutil
+  pip3 install paramiko
+  pip3 install pymysql
+
 
 You should then add variables for ``CPPFLAGS`` and ``LDFLAGS`` to your shell environment. This allows ``pythonz`` to find the OpenSSL installed by Homebrew.
 

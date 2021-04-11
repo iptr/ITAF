@@ -1,13 +1,18 @@
+import os
 import socket as skt
 import multiprocessing as mp
 import binascii as ba
 import platform as pf
 import time
+import psutil as pu
 from commonlib import *
 
 OMS_DMS_PORT = 50011
 MAX_RECV_SIZE = 4192
 TIME_OUT_SEC = 30
+VUSER_LIST_COLS_MIN = 3
+SCENARIO_COLS_MIN = 7
+
 
 #Request Command Code
 VERSION_REQ = 10
@@ -92,7 +97,7 @@ class OmsPktMaker:
     '''
     def setConf(self, conf):
         self.host = conf['DBSAFER']['gw']
-        cert_id_pw = conf['DBSAFER']['cert_id_pw'].split() 
+        cert_id_pw = conf['OMSDMS']['cert_id_pw'].split() 
         self.sno = cert_id_pw[0]
         self.pw = cert_id_pw[1]
         self.privip = conf['Common']['vuser_ip']
@@ -138,7 +143,6 @@ class OmsPktMaker:
         Struct_type : 구조체 종류 (unikey, v4, ex, v4nopw)
         '''
         strtype = struct_type.lower()
-        
         payload = longToB(2)
         payload += usToB(len(self.sno)) + self.sno.encode()
         
@@ -189,98 +193,101 @@ class OmsPktMaker:
     
     def makeVersionReq(self):
         payload = self.makeCommandInfo(VERSION_REQ, 
-                                             COMMAND_LENGTH,
-                                             DEFAULT_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       DEFAULT_STRUCTHASH,
+                                       CHECK_CODE)
         return payload
         
     def makePolicyReq(self):
         payload = self.makeCommandInfo(POLICY_REQ,
-                                             COMMAND_LENGTH,
-                                             DEFAULT_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       DEFAULT_STRUCTHASH,
+                                       CHECK_CODE)
         return payload
         
     def makeIPCheckReq(self):
         payload = self.makeCommandInfo(IP_CHECK_REQ,
-                                             COMMAND_LENGTH,
-                                             DEFAULT_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       DEFAULT_STRUCTHASH,
+                                       CHECK_CODE)
         return payload
 
     def makeLoginUnikeyReq(self):
         payload = self.makeCommandInfo(LOGIN_UNIKEY_REQ,
-                                             COMMAND_LENGTH,
-                                             LOGIN_UNIKEY_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       LOGIN_UNIKEY_STRUCTHASH,
+                                       CHECK_CODE)
         payload += self.makeLoginInfo('Unikey')
         return payload
         
     def makeLoginReq(self):
         payload = self.makeCommandInfo(LOGIN_REQ,
-                                             COMMAND_LENGTH,
-                                             LOGIN_V4_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       LOGIN_V4_STRUCTHASH,
+                                       CHECK_CODE)
         payload += self.makeLoginInfo('v4')
         return payload
 
     def makeSaveEnvReq(self):
         payload = self.makeCommandInfo(SAVE_CLIENT_REQ,
-                                             COMMAND_LENGTH,
-                                             ENV_UNIKEY_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       ENV_UNIKEY_STRUCTHASH,
+                                       CHECK_CODE)
         payload += self.makeEnvUnikeyInfo()
         return payload
         
     def makeSerialCheckReq(self):
         payload = self.makeCommandInfo(CHECK_SERIAL_REQ,
-                                             COMMAND_LENGTH,
-                                             LOGIN_UNIKEY_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       LOGIN_UNIKEY_STRUCTHASH,
+                                       CHECK_CODE)
         payload += self.makeLoginInfo('unikey')
         return payload
 
     def makeService0111Req(self):
         payload = self.makeCommandInfo(SERVICE0111_REQ,
-                                             COMMAND_LENGTH,
-                                             LOGIN_EX_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       LOGIN_EX_STRUCTHASH,
+                                       CHECK_CODE)
         payload += self.makeLoginInfo('ex')
     
     def makeService0112Req(self):    
         payload = self.makeCommandInfo(SERVICE0112_REQ,
-                                             COMMAND_LENGTH,
-                                             LOGIN_V4_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       LOGIN_V4_STRUCTHASH,
+                                       CHECK_CODE)
         payload += self.makeLoginInfo('v4nopw')
         return payload
                       
     def makeLoopBackMsgReq(self):
         payload = self.makeCommandInfo(LOOPBACK_REQ,
-                                             COMMAND_LENGTH,
-                                             DEFAULT_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       DEFAULT_STRUCTHASH,
+                                       CHECK_CODE)
         return payload
                 
     def makeLogoutReq(self):
         payload = self.makeCommandInfo(LOGOUT_REQ,
-                                             COMMAND_LENGTH,
-                                             LOGIN_UNIKEY_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       LOGIN_UNIKEY_STRUCTHASH,
+                                       CHECK_CODE)
         payload += self.makeLoginInfo('unikey')
         return payload
     
     def makeAliveCheckReq(self):
         payload = self.makeCommandInfo(ALIVE_CHECK_REQ,
-                                             COMMAND_LENGTH,
-                                             LOGIN_UNIKEY_STRUCTHASH,
-                                             CHECK_CODE)
+                                       COMMAND_LENGTH,
+                                       LOGIN_UNIKEY_STRUCTHASH,
+                                       CHECK_CODE)
         return payload
 
 
 class OmsPktParser:
-         
-    def readPolicyRes(self, payload):
+    '''
+    요청에 대한 응답값을 파싱하는 클래스
+    '''
+    
+    def readPolicyRes(self, payload):      
         policy_n_t = {}
         policy_n_t['num'] = []
         policy_n_t['title'] = []
@@ -302,8 +309,7 @@ class OmsPktParser:
             else:
                 break
         
-        return (byteToNum(payload[0:2]), len(payload), 
-                get_hash(str(policy_n_t)), policy_n_t)
+        return policy_n_t
     
     def readMsg(self, payload):
         cmdlen = 8
@@ -311,37 +317,34 @@ class OmsPktParser:
         #msg 시작 지점
         msgsp = cmdlen + msglen
         plen = byteToNum(payload[cmdlen:msgsp])
-        pvalue = payload[msgsp:msgsp+plen]
+        message = payload[msgsp:msgsp+plen]
         
         try:
-            pvalue = pvalue.decode()
+            message = message.decode()
         except Exception as e:
             pass
-        
-        return (byteToNum(payload[0:2]), len(payload), 
-                get_hash(pvalue), pvalue)
+       
+        return message
             
     def readServiceRes(self, payload):
-        #stime = time.time()
-        #payload = payload[8:]
-        #services = []
-        #
-        #while True:
-        #    temp = self.readMsg(payload)
-        #    services.append(temp)
-        #    len_rm = len(temp) + 10
-        #    
-        #    if len(payload) > len_rm:
-        #        payload = payload[len_rm:]
-        #    else:
-        #        break
-        #
-        #print(time.time() - stime)
-        return (byteToNum(payload[0:2]), len(payload), '')
-                #get_hash(str(payload)), '')
+        pl = payload[8:]
+        services = []
+        
+        while True:
+            temp = self.readMsg(pl)
+            services.append(temp)
+            len_rm = len(temp) + 10
+            
+            if len(pl) > len_rm:
+                pl = pl[len_rm:]
+            else:
+                break
+        message = payload[10:]
+        
+        return message
                 
     
-    def readPayload(self, payload):
+    def readPayload(self, payload, parse_msg = False):
         read_func_list = {
             usToB(VERSION_RET):self.readMsg,
             usToB(POLICY_RET):self.readPolicyRes,
@@ -372,16 +375,29 @@ class OmsPktParser:
             usToB(LOGOUT_RET):LOGOUT_RET,
             usToB(LOGOUT_ERR):LOGOUT_ERR
         }
+        if False == parse_msg:
+            read_func_list[usToB(VERSION_RET)] = VERSION_RET
+            read_func_list[usToB(POLICY_RET)] = POLICY_RET
+            read_func_list[usToB(IP_CHECK_RET)] = IP_CHECK_RET
+            read_func_list[usToB(SERIAL_RET)] = SERIAL_RET
+            read_func_list[usToB(SERVICE_0111_START_RET)] = SERVICE_0111_START_RET
+            read_func_list[usToB(SERVICE_0112_START_RET)] = SERVICE_0112_START_RET
+        
         try:
-            value = read_func_list[payload[0:2]]
+            read_func = read_func_list[payload[0:2]]
         except Exception as e:
             return -1
         
-        if type(value) in [int, str]:
-            return (value, 8)
+        if type(read_func) == int:
+            return (read_func, 
+                    len(payload), 
+                    get_hash(payload), 
+                    payload)
         else:
-            return value(payload)
-     
+            return (payload[0:2], 
+                    len(payload), 
+                    get_hash(payload), 
+                    read_func(payload))
        
 class OmsTester:
     '''
@@ -390,35 +406,91 @@ class OmsTester:
     uid = None
     conf = None
     scenario = None
+    vnic = None
+    exp_data = {}
     
     def __init__(self):
         self.maker = OmsPktMaker()
         self.parser = OmsPktParser()
         
-    def setConf(self, uid, conf:dict, scenario:list):
-        self.uid = uid
-        self.conf = conf
-        self.scenario = []
+    def setVIP(self):
+        ifcs = pu.net_if_addrs()
+        vuser_nic = self.conf['Common']['vuser_nic'].lower()
+        vuser_ip = self.conf['Common']['vuser_ip'].lower()
+        netmask = self.conf['Common']['vuser_netmask'].lower()
+        cur_nic_list = list(ifcs.keys())
+        # 설정의 VUSER_NIC가 잘못된 값일 경우 예외 발생
+
+        if vuser_nic not in cur_nic_list:
+            raise Exception('%s Interface Not exist!'%vuser_nic)
+        
+        # IP가 등록되어 있는지 확인
+        for nic in cur_nic_list:
+            if ifcs[nic][0][1] == vuser_ip:
+                self.vnic = nic
+                return self.vnic
+        
+        # 가상 IP 등록
+        cmd = 'ifconfig %s %s netmask %s up'
+        for i in range(65536):
+            vnic = vuser_nic + ':' + str(i)
+            if vnic not in cur_nic_list:
+                if 0 != os.system(cmd%(vnic, vuser_ip, netmask)):
+                    raise Exception('Failed to add VIP!')
+                self.vnic = vnic
+                return self.vnic
+                
+    def cleanUpVIP(self):
+        # 가상 IP 제거
+        cmd = 'ifconfig %s down'
+        if 0 != os.system(cmd%self.vnic):
+            raise Exception("Failed to remove VIP")
+        self.vnic == None
+        
+    def setConf(self, uid = None, conf:dict = None, scenario:list = None):
+        if None == self.uid:
+            if str != type(uid):
+                raise Exception('Wrong vuserID')
+            self.uid = uid
+        
+        if None == self.conf and dict != type(conf):
+            raise Exception('Config Dict needed')
+        if dict == type(conf):
+            self.conf = conf
+            
+        if None == self.scenario and list != type(scenario):
+            raise Exception('Scenario List needed')
+
+        if list == type(scenario):
+            self.scenario = []    
+            for line in scenario:
+                temp_col = []
+                for i,col in enumerate(line):
+                    if i == 0:
+                        temp_col.append(int(col))
+                        continue
+                    if i == 1:
+                        temp_col.append(eval(('self.maker.make' + col)))
+                        continue
+                    if i == 2:
+                        temp_col.append(int(col))
+                        continue
+                    if i == 3:
+                        temp_col.append(eval(col))
+                        continue
+                    temp_col.append(col)
+                if len(temp_col) < SCENARIO_COLS_MIN:
+                    temp_col += ['' for i in range(SCENARIO_COLS_MIN - len(temp_col))]
+                self.scenario.append(temp_col)
+            
         self.host = self.conf['DBSAFER']['gw']
-        for line in scenario:
-            temp_col = []
-            for i,col in enumerate(line):
-                if i == 0:
-                    temp_col.append(int(col))
-                    continue
-                if i == 1:
-                    temp_col.append(eval(('self.maker.make' + col)))
-                    continue
-                if i == 2:
-                    temp_col.append(int(col))
-                    continue
-                if i == 3:
-                    temp_col.append(eval(col))
-                    continue
-                temp_col.append(col)
-            self.scenario.append(temp_col)
+        
         self.maker.setConf(conf)
         
+        if self.vnic != None:
+            self.cleanUpVIP()
+        self.setVIP()
+            
     def connect(self):
         '''
         Make Connection to Target OMS_DMS
@@ -438,26 +510,56 @@ class OmsTester:
             sock.setsockopt(skt.IPPROTO_TCP, skt.SO_KEEPALIVE, INTERVAL_SEC)
             sock.setsockopt(skt.IPPROTO_TCP, skt.SO_KEEPALIVE, MAX_FAILS)
         sock.setsockopt(skt.SOL_SOCKET, skt.SO_LINGER, pack('ii', 1, 0))
+        nic_name = (self.conf['Common']['vuser_nic']+'\0').encode('utf8')
+        sock.setsockopt(skt.SOL_SOCKET, skt.SO_BINDTODEVICE, nic_name)
         sock.settimeout(TIME_OUT_SEC)
-        sock.connect((self.host, OMS_DMS_PORT))    
+        sock.connect((self.host, OMS_DMS_PORT))
         return sock
     
-    def getExpectedResult(self):
-        pass
+    def getExpectedResult(self, ex_ref, ex_result):
+        ex_path = None
+        ex_var = None
+        pos_var = ex_ref.find('%')
+        pos_path = ex_ref.find('@')
+        
+        if pos_var > -1 and pos_path > -1:
+            # 경로가 먼저인 경우
+            if pos_var > pos_path:
+                ex_ref.strip('@ ')
+                temp = ex_ref.split('%')
+                ex_path = temp[0].strip()
+                ex_var = temp[1].strip()
+            # 변수가 먼저인 경우
+            else:
+                ex_ref.strip('% ')
+                temp = ex_ref.split('@')
+                ex_var = temp[0].strip()
+                ex_path = temp[1].strip()
+        elif pos_var > -1:
+            ex_var = ex_ref.strip('% ')
+        elif pos_path > -1:
+            ex_path = ex_ref.strip('@ ')
+        else:
+            pass
+        
+        if None != ex_path:
+            f = open(ex_path,'wb')
+            f.write(ex_result)
+            f.close()
+        
+        if None != ex_var:
+            self.exp_data[ex_var] = ex_result
     
-    def verifyResData(self):
-        pass
+    def verifyResData(self, origin, ret):
+        result = 'ChkResCode : %s'%str(ret[0] == origin[3])
+        print(result, ret[0], origin[3])
     
-    def runTest(self, mode='test'):
-        '''
-        mode : test or prepare
-        '''
+    def runTest(self, prepare=False):
         sock = None
         cur_session = -1
         pktparser = self.parser.readPayload
-        result = []
         
-        for i,step in enumerate(self.scenario):
+        for step in self.scenario:
             if int(step[0]) > cur_session:
                 if None != sock:
                     sock.close()
@@ -490,15 +592,17 @@ class OmsTester:
                         break
             
             # 파싱된 응답값
-            ret = pktparser(data)
-            print(step[1], time.time()-stime)
+            ret = pktparser(data, parse_msg=False)
+            print(str(step[1]).split()[2], time.time() - stime)
+            
             # result값을 검증할지 저장할지 결정
-            if 'test' == mode.lower():
-                print("DEBUG",ret[0], step[3])
+            if False == prepare:
+                self.verifyResData(step, ret)
+                
                 pass
             else:
-                if step[4].find('%') > -1:
-                    self.scenario[i][4] = ret[2]
+                self.getExpectedResult(step[4], ret[3])
+                    
                     
 def makeVusers(vuser_list_csv):
     """
@@ -515,9 +619,18 @@ def makeVusers(vuser_list_csv):
     
     for line in get_list_from_csv(vuser_list_csv):
         vuser = OmsTester()
-        vuser.setConf(line[0], 
-                      get_file_conf(line[1]),
-                      get_list_from_csv(line[2]))
+        vuserid = line[0]
+        conf = get_file_conf(line[1])
+        scenario = get_list_from_csv(line[2])
+        if len(line) > VUSER_LIST_COLS_MIN:
+            for i in range(VUSER_LIST_COLS_MIN, len(line)):
+                if '' != line[i]:
+                    temp = line[i].split('=')
+                    key = temp[0].split('.')
+                    grp = key[0].strip()
+                    name = key[1].strip().lower()
+                    conf[grp][name] = temp[1].strip()
+        vuser.setConf(vuserid, conf, scenario)
         vusers.append(vuser)
         
     return vusers
@@ -526,15 +639,25 @@ def runTest(vusers):
     '''
     실제 테스트 실행부
     '''
-    vusers[0].runTest()
-    #procs = []
-    #for vuser in vusers:
-    #    proc = mp.Process(target=vuser.runTest, args=())
-    #    proc.start()
-    #    procs.append(proc)
-    #
-    #for proc in procs:
-    #    proc.join()
+    
+    procs = []
+    for vuser in vusers:
+        proc = mp.Process(target=vuser.runTest, args=(True,))
+        proc.start()
+        procs.append(proc)
+    
+    for proc in procs:
+        proc.join()
+        
+    procs = []
+    for vuser in vusers:
+        proc = mp.Process(target=vuser.runTest, args=(False,))
+        proc.start()
+        procs.append(proc)
+    
+    for proc in procs:
+        proc.join()
+
 
 def closeTest():
     pass

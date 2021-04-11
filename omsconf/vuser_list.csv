@@ -1,11 +1,11 @@
-# Vuser ID, Config File, Scenario File
-vuser01,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
-#vuser02,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
-#vuser03,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
-#vuser04,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
-#vuser05,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
-#vuser06,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
-#vuser07,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
-#vuser08,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
-#vuser09,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
-#vuser10,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv
+# Vuser ID, Config File, Scenario File, additional config
+vuser01,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv,OMSDMS.CERT_ID_PW = trollking dbsafer00
+vuser02,omsconf/vuser02.conf,omsconf/vuser02_scenario.csv,OMSDMS.CERT_ID_PW = vuser02 dbsafer00
+vuser03,omsconf/vuser03.conf,omsconf/vuser03_scenario.csv,OMSDMS.CERT_ID_PW = vuser03 dbsafer00
+vuser04,omsconf/vuser04.conf,omsconf/vuser04_scenario.csv,OMSDMS.CERT_ID_PW = vuser04 dbsafer00
+vuser05,omsconf/vuser05.conf,omsconf/vuser05_scenario.csv,OMSDMS.CERT_ID_PW = vuser05 dbsafer00
+#vuser06,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv,OMSDMS.CERT_ID_PW = vuser06  dbsafer00
+#vuser07,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv,OMSDMS.CERT_ID_PW = vuser07  dbsafer00
+#vuser08,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv,OMSDMS.CERT_ID_PW = vuser08  dbsafer00
+#vuser09,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv,OMSDMS.CERT_ID_PW = vuser09 dbsafer00
+#vuser10,omsconf/vuser01.conf,omsconf/vuser01_scenario.csv,OMSDMS.CERT_ID_PW = vuser10  dbsafer00

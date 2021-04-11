@@ -61,11 +61,11 @@
 # 사용방법: [설정그룹명].[설정명]=[설정값]
 # 사용 예 : OMSDMS.MAC_ADDR="12:34:56:78:90:12,FF:EE:DD:CC:BB:AA",DBSAFER.GW=192.168.2.204
 
-# Session Number, Request Code, Delay to Next, Expected Response Code, Expected Message, Config to modify 
-0,VersionReq,0,VERSION_RET,119,
+# Session Number, Request Code, Delay to Next, Method to Verify, Expected Response Code, Expected Message, Config to modify 
+0,VersionReq,0,VERSION_RET,%version,VUSER_IP=192.168.2.149
 1,VersionReq,0,VERSION_RET,%version,
 1,PolicyReq,0,POLICY_RET,%policy,
-1,IPCheckReq,0,IP_CHECK_RET,%vuser_ip,
+1,IPCheckReq,0,IP_CHECK_RET,%localip,
 2,LoginUnikeyReq,0,CERTID_NOT_LOGGED_IN,
 2,LoginReq,0,LOGIN_RET_SHA256,
 2,SaveEnvReq,0,SAVE_ENV_RET,
@@ -73,3 +73,14 @@
 3,Service0112Req,0,SERVICE_0112_START_RET,%vuser_service,
 4,LoopBackMsgReq,0,LOOPBACK_RET,
 5,LogoutReq,0,LOGOUT_RET,
+6,VersionReq,0,VERSION_RET,119,@omsconf/vuser02.conf
+7,VersionReq,0,VERSION_RET,%version,
+7,PolicyReq,0,POLICY_RET,%policy,
+7,IPCheckReq,0,IP_CHECK_RET,%vuser_ip,
+8,LoginUnikeyReq,0,CERTID_NOT_LOGGED_IN,
+8,LoginReq,0,LOGIN_RET_SHA256,
+8,SaveEnvReq,0,SAVE_ENV_RET,
+9,SerialCheckReq,0,SERIAL_RET,%vuser_serial,
+9,Service0112Req,0,SERVICE_0112_START_RET,@vuser01_service.txt,
+10,LoopBackMsgReq,0,LOOPBACK_RET,
+11,LogoutReq,0,LOGOUT_RET,
