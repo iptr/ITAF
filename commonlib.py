@@ -289,6 +289,7 @@ def readFileLines(path):
 
     fp = open(path,"r")
     result = fp.readlines()
+    fp.close()
 
     return result
 
@@ -307,12 +308,37 @@ def readFileLine(path):
 
     fp = open(path,"r")
     result = fp.readline()
+    fp.close()
 
     return result
 
-def readDCConfFile(path):
+def getSplitNewLineList(path):
     '''
-    DC Config 파일 read
+    파일을 읽어 한줄씩 리스트에 저장
+
+    @param
+        path - 파일 경로
+
+    @return
+        한줄 씩 읽은 결과 리스트
+    '''
+    result_list = []
+    if os.path.isfile(path) == False:
+        return result_list
+
+    fp = open(path,'r')
+
+    result = fp.readline()
+    while result:
+        result = removeLineFeed(result)
+        result_list.append(result)
+        result = fp.readline()
+
+    return result_list
+
+def readConfFile(path):
+    '''
+    Config 파일 read
 
     @param
         path - conf 파일이 저장된 위치
@@ -327,7 +353,9 @@ def readDCConfFile(path):
     result = []
 
     while readLine:
+        # 주석이 아닌 경우
         if isComment(readLine) != 1:
+            # 내용이 먼저 나오고 뒤에 주석이 나오는 경우
             if isComment(readLine) == 2:
                 readLine = splitHashTag(readLine)
 
