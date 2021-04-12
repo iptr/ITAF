@@ -39,7 +39,7 @@ class WebControl:
         """
         #TODO : password 처리 - 암호화해서 config 파일에 저장하는 방향 고민
 
-        conf = commonlib.readDCConfFile(DCCONFPATH)
+        conf = commonlib.readConfFile(DCCONFPATH)
         self.driver.get(conf["URL"])
         self.driver.find_element_by_id('loginId').send_keys(conf["ID"])
         self.driver.find_element_by_id("loginPassword").send_keys(conf["PASSWD"])
