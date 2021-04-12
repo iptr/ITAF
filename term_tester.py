@@ -410,7 +410,12 @@ def measure_session(server_list, data_set, signal):
             tresult.append([sl[0],sl[1],str(sl[2]+':'+sl[3]), 0])
             server_set = ServerSet([sl], 1)
             proc = mp.Process(target=tester, 
-                            args=(tconf, server_set, data_set, i, signal, tq))
+                              args=(tconf, 
+                                    server_set, 
+                                    data_set, 
+                                    i, 
+                                    signal, 
+                                    tq))
             proc.start()
             tprocs.append(proc)
 

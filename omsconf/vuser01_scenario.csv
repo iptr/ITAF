@@ -17,10 +17,11 @@
 # Service0112Req : 0112형태로 서비스 목록 요청
 # LoopBackMsgReq : Client IP로 LoopBack 메시지를 요청
 # LogoutReq : 로그아웃을 요청
-
+# AliveCheckReq : 로그인 상태에서 일정 주기(30~120초 간격)로 상태 체크 요청
+#
 # [Delay to Next 설명]
 # 현재 요청 이후 다음 요청까지의 지연시간
-
+#
 # [Expected Response Code 설명]
 # VERSION_RET : 버전요청에 대한 정상 응답 코드(보통 119가 들어옴)
 # POLICY_RET : 정책요청에 대한 정상 응답 코드(정책이 함께 들어옴)
@@ -44,7 +45,11 @@
 # SERIAL_LOGOUT : 로그 아웃 응답 코드
 # SERIAL_SAME_IP : 같은 IP가 존재할 경우 응답 코드
 # SERVICE_0112_START_RET : 서비스 목록 응답 코드
-
+# ALIVE_RET : AliveCheckReq에 대한 정상 응답
+# ALIVE_ERR : AliveCheckReq에 대한 에러 응답
+# ALIVE_LOGOUT : 해당 계정 로그아웃 상태로 변경됨
+# ALIVE_SAME_IP : 동일 IP 사용 상태 응답
+#
 # [Expected Message 설명]
 # 일부 Response는 응답 코드만 오는것이 아니라 추가 메시지가 오는 경우가 있는데
 # 검증을 위해 예측되는 메시지를 입력한다.
@@ -52,7 +57,7 @@
 # 해당 시나리오를 사전에 한번 수행해서 응답받은 메시지 데이터가 저장된다.
 # '@'식별자도 사용이 가능한데 응답 메시지값을 사전에 파일로 저장했을 경우
 # 해당 파일의 내용을 검증 데이터로 사용할 수 있다.
-
+#
 # [Config to modify 설명]
 # vuserXX.conf의 내용이 테스트 기본설정값으로 지정되는데
 # 테스트 중간에 설정값을 변경해야 될 경우 해당 컬럼의 내용으로 변경하여 진행한다.
@@ -60,7 +65,7 @@
 # 설정내 ","(comma)가 있을 경우 ""(Double Quotation)으로 값을 입력해야 한다.
 # 사용방법: [설정그룹명].[설정명]=[설정값]
 # 사용 예 : OMSDMS.MAC_ADDR="12:34:56:78:90:12,FF:EE:DD:CC:BB:AA",DBSAFER.GW=192.168.2.204
-
+#
 # Session Number, Request Code, Delay to Next, Method to Verify, Expected Response Code, Expected Message, Config to modify 
 0,VersionReq,0,VERSION_RET,%version,VUSER_IP=192.168.2.149
 1,VersionReq,0,VERSION_RET,%version,

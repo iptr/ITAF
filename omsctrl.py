@@ -11,8 +11,7 @@ OMS_DMS_PORT = 50011
 MAX_RECV_SIZE = 4192
 TIME_OUT_SEC = 30
 VUSER_LIST_COLS_MIN = 3
-SCENARIO_COLS_MIN = 7
-
+SCENARIO_COLS_MIN = 5
 
 #Request Command Code
 VERSION_REQ = 10
@@ -277,7 +276,7 @@ class OmsPktMaker:
     def makeAliveCheckReq(self):
         payload = self.makeCommandInfo(ALIVE_CHECK_REQ,
                                        COMMAND_LENGTH,
-                                       LOGIN_UNIKEY_STRUCTHASH,
+                                       DEFAULT_STRUCTHASH,
                                        CHECK_CODE)
         return payload
 
@@ -373,7 +372,12 @@ class OmsPktParser:
             usToB(SERVICE_0112_START_RET):self.readServiceRes,
             usToB(LOOPBACK_RET):LOOPBACK_RET,
             usToB(LOGOUT_RET):LOGOUT_RET,
-            usToB(LOGOUT_ERR):LOGOUT_ERR
+            usToB(LOGOUT_ERR):LOGOUT_ERR,
+            usToB(ALIVE_RET):ALIVE_RET,
+            usToB(ALIVE_ERR):ALIVE_ERR,
+            usToB(ALIVE_LOGOUT):ALIVE_LOGOUT,
+            usToB(ALIVE_SAME_IP):ALIVE_SAME_IP,
+            
         }
         if False == parse_msg:
             read_func_list[usToB(VERSION_RET)] = VERSION_RET
@@ -386,6 +390,7 @@ class OmsPktParser:
         try:
             read_func = read_func_list[payload[0:2]]
         except Exception as e:
+            print(e, payload)
             return -1
         
         if type(read_func) == int:
@@ -394,7 +399,7 @@ class OmsPktParser:
                     get_hash(payload), 
                     payload)
         else:
-            return (payload[0:2], 
+            return (byteToNum(payload[0:2]), 
                     len(payload), 
                     get_hash(payload), 
                     read_func(payload))
@@ -455,8 +460,12 @@ class OmsTester:
         
         if None == self.conf and dict != type(conf):
             raise Exception('Config Dict needed')
+        
         if dict == type(conf):
             self.conf = conf
+            self.maker.setConf(conf)
+        else:
+            self.maker.setConf(self.conf)
             
         if None == self.scenario and list != type(scenario):
             raise Exception('Scenario List needed')
@@ -484,8 +493,6 @@ class OmsTester:
                 self.scenario.append(temp_col)
             
         self.host = self.conf['DBSAFER']['gw']
-        
-        self.maker.setConf(conf)
         
         if self.vnic != None:
             self.cleanUpVIP()
@@ -516,93 +523,179 @@ class OmsTester:
         sock.connect((self.host, OMS_DMS_PORT))
         return sock
     
-    def getExpectedResult(self, ex_ref, ex_result):
-        ex_path = None
-        ex_var = None
-        pos_var = ex_ref.find('%')
-        pos_path = ex_ref.find('@')
+    def parseCols(self, col):
+        '''
+        @return
+            문자열 앞에 붙는 기호가
+            변수명('%')일 경우 (변수명, None)
+            경로명('@')일 경우 (None, 경로명)
+            둘 다 있을 경우    (변수명, 경로명)
+        '''
+        path = None
+        var = None
+        pos_var = col.find('%')
+        pos_path = col.find('@')
         
         if pos_var > -1 and pos_path > -1:
             # 경로가 먼저인 경우
             if pos_var > pos_path:
-                ex_ref.strip('@ ')
-                temp = ex_ref.split('%')
-                ex_path = temp[0].strip()
-                ex_var = temp[1].strip()
+                col.strip('@ ')
+                temp = col.split('%')
+                path = temp[0].strip()
+                var = temp[1].strip()
             # 변수가 먼저인 경우
             else:
-                ex_ref.strip('% ')
-                temp = ex_ref.split('@')
-                ex_var = temp[0].strip()
-                ex_path = temp[1].strip()
+                col.strip('% ')
+                temp = col.split('@')
+                var = temp[0].strip()
+                path = temp[1].strip()
         elif pos_var > -1:
-            ex_var = ex_ref.strip('% ')
+            var = col.strip('% ')
         elif pos_path > -1:
-            ex_path = ex_ref.strip('@ ')
+            path = col.strip('@ ')
         else:
             pass
         
-        if None != ex_path:
-            f = open(ex_path,'wb')
-            f.write(ex_result)
+        return (var, path)
+    
+    def saveExpResult(self, exp_ret_col, ret_value):
+        ret = self.parseCols(exp_ret_col)
+        
+        if None != ret[0]:
+            self.exp_data[ret[0]] = ret_value
+        
+        if None != ret[1]:
+            f = open(ret[1],'wb')
+            f.write(ret_value)
             f.close()
+    
+    def verifyResData(self, exp_ret_row, ret_value):
+        '''
+        1. Ret 값 비교
+        2. payload hash 비교
+        '''
+        RET_DATA_SIZE = 6
+        RES_RET = 0
+        HASH_RET = 1
+        FILE_RET = 2
+        RES_ERR = 3
+        HASH_ERR = 4
+        FILE_ERR = 5
+        ret_data = [None for i in range(RET_DATA_SIZE)]
+
+        # 기대 값 컬럼 파싱        
+        ret_data[RES_RET] = (int(ret_value[0]) == 
+                             int(exp_ret_row[3]))
         
-        if None != ex_var:
-            self.exp_data[ex_var] = ex_result
-    
-    def verifyResData(self, origin, ret):
-        result = 'ChkResCode : %s'%str(ret[0] == origin[3])
-        print(result, ret[0], origin[3])
-    
-    def runTest(self, prepare=False):
-        sock = None
-        cur_session = -1
+        if ret_data[RES_RET] == False:    
+                ret_data[RES_ERR] = (int(ret_value[0]),
+                                     int(exp_ret_row[3]))
+        
+        if ((exp_ret_row[4].find('%') == -1 and 
+            exp_ret_row[4].find('@') == -1) or 
+            exp_ret_row[4] == ''):
+        
+            return ret_data 
+        
+        tmp = self.parseCols(exp_ret_row[4])
+        var = tmp[0]
+        path = tmp[1]
+        
+        if None != var:
+            ret_data[HASH_RET] = (get_hash(self.exp_data[var])
+                                == ret_value[2])
+            if ret_data[HASH_RET] == False:
+                ret_data[HASH_ERR] = (get_hash(self.exp_data[var]),
+                                      ret_value[2])
+                
+        if None != path:
+            # 검증 파일 읽기
+            f = open(path, 'rb')
+            buf = f.read()
+            f.close()
+            
+            # 파일 내용과 결과와 비교
+            ret_data[FILE_RET] = (buf == ret_value[3])
+            if ret_data[FILE_RET] == False:
+                ret_data[FILE_ERR] = (buf, ret_value[3])
+        
+        return ret_data
+        
+    def runTest(self):
         pktparser = self.parser.readPayload
+        prepare_mode = True
         
-        for step in self.scenario:
-            if int(step[0]) > cur_session:
-                if None != sock:
-                    sock.close()
-                sock = self.connect()
-                cur_session = int(step[0])        
-            
-            data = b''
-            payload = step[1]()
-            stime = time.time()
-            sock.send(payload)
-            
-            while True:
-                buf = sock.recv(MAX_RECV_SIZE)
-                data += buf
+        for cnt in range(int(self.conf['Common']['repeat_count'])+1):
+            sock = None
+            cur_session = -1
+            for step in self.scenario:
+                if len(step) > SCENARIO_COLS_MIN:
+                    for line in step[SCENARIO_COLS_MIN:len(step)]:
+                        if line.find('=') > -1:    
+                            tmp = line.split('=')
+                            key = tmp[0].split('.')
+                            value = tmp[1].strip()
+                            grp = key[0].strip()
+                            name = key[1].lower().strip()
+                            self.conf[grp][name] = value
+                    self.setConf()
                 
-                if step[1] in (self.maker.makeService0111Req,
-                               self.maker.makeService0112Req):
-                    # 서비스 목록 Payload 뒷쪽에 DATA END 시그널이 있는지 확인
-                    if buf[-8:] == b'\x01?\xff\xff\x00\x00CK' or b'' == buf:
-                        break
+                if int(step[0]) > cur_session:
+                    if None != sock:
+                        sock.close()
+                    sock = self.connect()
+                    cur_session = int(step[0])        
+                
+                data = b''
+                payload = step[1]()
+                sock.send(payload)
+                
+                while True:
+                    buf = sock.recv(MAX_RECV_SIZE)
+                    data += buf
                     
-                elif step[1] == self.maker.makePolicyReq:
-                    # 정책 목록 Payload 뒷쪽에 DATA END 시그널이 있는지 확인
-                    if  buf[-8:] == b'\x00\x1c\xff\xff\x00\x00CK' or b'' == buf:
-                        break
+                    if step[1] in (self.maker.makeService0111Req,
+                                   self.maker.makeService0112Req):
+                        # 서비스 목록 Payload 뒷쪽에 DATA END 시그널이 있는지 확인
+                        if buf[-8:] == b'\x01?\xff\xff\x00\x00CK' or b'' == buf:
+                            break
+                        
+                    elif step[1] == self.maker.makePolicyReq:
+                        # 정책 목록 Payload 뒷쪽에 DATA END 시그널이 있는지 확인
+                        if  buf[-8:] == b'\x00\x1c\xff\xff\x00\x00CK' or b'' == buf:
+                            break
+                        
+                    else:
+                        # 0바이트거나 최대 받는 크기보다 작은 내용을 받았을 경우(1회성 Recv)
+                        if buf == b'' or len(buf) < MAX_RECV_SIZE:
+                            break
+                
+                # 파싱된 응답값
+                if data == b'':
+                    print('No data : ', result)
+                    continue
+                
+                ret = pktparser(data, parse_msg=False)
+                
+                # result값을 검증할지 저장할지 결정
+                if False == prepare_mode:
+                    result = self.verifyResData(step, ret)
                     
+                    if False in result[0:3]:
+                        print('%s %s %s %s Error : %s'
+                              %(self.uid,
+                                step[0],
+                                cnt,
+                                str(step[1]).split(' ')[2].split('.make')[1],
+                                str(result[3:6])))
                 else:
-                    # 0바이트거나 최대 받는 크기보다 작은 내용을 받았을 경우(1회성 Recv)
-                    if buf == b'' or len(buf) < MAX_RECV_SIZE:
-                        break
-            
-            # 파싱된 응답값
-            ret = pktparser(data, parse_msg=False)
-            print(str(step[1]).split()[2], time.time() - stime)
-            
-            # result값을 검증할지 저장할지 결정
-            if False == prepare:
-                self.verifyResData(step, ret)
+                    self.saveExpResult(step[4], ret[3])
                 
-                pass
-            else:
-                self.getExpectedResult(step[4], ret[3])
+                if prepare_mode == False:
+                    time.sleep(int(step[2]))
                     
+            if 0 == cnt:
+                prepare_mode = False
                     
 def makeVusers(vuser_list_csv):
     """
@@ -639,19 +732,12 @@ def runTest(vusers):
     '''
     실제 테스트 실행부
     '''
+    resq = mp.Queue()
+    signal = mp.Value('d', 0)
     
     procs = []
     for vuser in vusers:
-        proc = mp.Process(target=vuser.runTest, args=(True,))
-        proc.start()
-        procs.append(proc)
-    
-    for proc in procs:
-        proc.join()
-        
-    procs = []
-    for vuser in vusers:
-        proc = mp.Process(target=vuser.runTest, args=(False,))
+        proc = mp.Process(target=vuser.runTest, args=())
         proc.start()
         procs.append(proc)
     
