@@ -1,14 +1,21 @@
 import winguicommon
 import dbsaferguiutil
+import commonlib
 
 DEFAULTICONPATH = "C:\\Users\\pnpsecure\\Desktop\\icon\\"
 MANAGERPATH = r"C:\Program Files\PNP SECURE\Enterprise Manager 7\Enterprise Manager.exe"
+CONFIGPATH = "conf/dbsaferGUI.conf"
+LEFT = 1
+RIGHT = 2
+DRAG = 3
 
-#TODO : 여러 가지 방향성을 조금 더 고민해 보아야 할 필요가 있다.
 class Dbsafergui:
     def __init__(self):
-        pass
- 
+        conf = commonlib.readConfFile(CONFIGPATH)
+        self.id = conf['id']
+        self.passwd = conf['password']
+        self.ip = conf['ip']
+
     def start(self,path):
         '''
         DBSAFER Manger 시작
@@ -35,21 +42,19 @@ class Dbsafergui:
             False - 실패
        '''
         try:
-            #todo: conf 파일 활용 여부 고려
-
             # 이미지 찾기를 이용하여 id 입력
             print(DEFAULTICONPATH+"log_in_id.png")
             cursor = winguicommon.findLocationPicture(DEFAULTICONPATH+"log_in_id.png")
             winguicommon.clickMouse(cursor)
-            winguicommon.inputMsg("admin")
+            winguicommon.inputMsg(self.id)
 
             # login PassWord 입력
             winguicommon.inputTab()
-            winguicommon.inputMsg("admin007!")
+            winguicommon.inputMsg(self.passwd)
 
             # login ip 입력
             winguicommon.inputTab()
-            winguicommon.inputMsg("10.77.162.11")
+            winguicommon.inputMsg(self.ip)
 
             # Connect 클릭
             cursor = winguicommon.findLocationPicture(DEFAULTICONPATH + "log_in_connect.png")
@@ -64,6 +69,7 @@ class Dbsafergui:
                 if dbsaferguiutil.checkManagerContent() == False:
                     return False
 
+                # 초기 매니저 위치 및 크기 변경
                 if dbsaferguiutil.initMangerLocation() == False:
                     return False
 
@@ -75,184 +81,125 @@ class Dbsafergui:
 
         return True
 
-    def viewControlPolicy(self):
+    def runTestCase(self,pattern_file_path):
         '''
-        정책 제어 화면 출력
+        기존에 등록되어 있는 테스트 케이스 실행
+
+        @param
+            pattern_file_path - 패턴 파일 경로
 
         @return
             True - 성공
             False - 실패
         '''
-        try:
-            # 정책 제어 아이콘 찾아 클릭
-            cursor = winguicommon.findLocationPicture(DEFAULTICONPATH+"control_policy.png")
-            winguicommon.clickMouse(cursor)
-        except Exception as e:
-            return False
-
-        return True
-
-    def viewControlObject(self):
-        '''
-        객체 제어 화면 출력
-
-        @return
-            True - 성공
-            False - 실패
-        '''
-        try:
-            # 객체 제어 아이콘 찾아 클릭
-            cursor = winguicommon.findLocationPicture(DEFAULTICONPATH + "control_object.png")
-            winguicommon.clickMouse(cursor)
-        except Exception as e:
-            return False
-
-        return True
-
-    def viewMonitoring(self):
-        '''
-        모니터링 화면 출력
-
-        @return
-            True - 성공
-            False - 실패
-        '''
-        try:
-            # 모니터링 아이콘 찾아 클릭
-            cursor = winguicommon.findLocationPicture(DEFAULTICONPATH + "monitor.png")
-            winguicommon.clickMouse(cursor)
-        except Exception as e:
-            return False
-
-        return True
-
-    def viewLog(self):
-        '''
-        로그 조회 화면 출력
-
-        @return
-            True - 성공
-            False - 실패
-        '''
-        try:
-            # 로그 조회 아이콘 찾아 클릭
-            cursor = winguicommon.findLocationPicture(DEFAULTICONPATH + "log.png")
-            winguicommon.clickMouse(cursor)
-        except Exception as e:
-            return False
-
-        return True
-
-    def viewMaintenance(self):
-        '''
-        유지 보수 화면 출력
-
-        @return
-            True - 성공
-            False - 실패
-        '''
-        try:
-            # 유지 보수 아이콘 찾아 클릭
-            cursor = winguicommon.findLocationPicture(DEFAULTICONPATH + "maintenance.png")
-            winguicommon.clickMouse(cursor)
-        except Exception as e:
-            return False
-
-
-        return True
-
-    def viewSetting(self):
-        '''
-        설정 화면 출력
-
-        @return
-            True - 성공
-            False - 실패
-        '''
-        try:
-            # 설정 아이콘 찾아 클릭
-            cursor = winguicommon.findLocationPicture(DEFAULTICONPATH + "setting.png")
-            winguicommon.clickMouse(cursor)
-        except Exception as e:
-            return False
-
-        return True
-
-    def runTestCase(self):
         # 마우스 트레이서를 이용한 결과를 읽어옴
-        # 결과를 똑같이 따라 가면서 CASE를 실행 시킴
+        pattern_list = commonlib.getSplitNewLineList(pattern_file_path)
+
+        if len(pattern_list) == 0:
+            return False
+
+        # 패턴에 맞추어 마우스 컨트롤
+        for i in range(len(pattern_list)):
+            # 마우스 패턴 파싱
+            result = Dbsafergui.parseMousePattern(self,pattern_list[i])
+            if len(result) == 0:
+                return False
+
+            # 파싱 된 결과를 토대로 마우스 액션 시작
+            if Dbsafergui.runMouseAction(self,result) == False:
+                return False
+
+        return True
+
+    def runMouseAction(self,result,x=0,y=0):
+        '''
+        마우스 정보를 받아 액션을 취함
+
+        @param
+            action - 마우스 액션
+            x - 드래그시 x 좌표
+            y - 드래그시 y 좌표
+
+        @return
+            True - 성공
+            False - 실패
+        '''
+        try:
+            # 마우스 좌 클릭
+            if result["action"] == LEFT:
+                winguicommon.clickMouse((result["x"],result["y"]))
+            # 마우스 우 클릭
+            elif result["action"] == RIGHT:
+                winguicommon.clickMouse((result["x"],result["y"]),button="right")
+            # 드래그
+            elif result["action"] == DRAG:
+                winguicommon.moveCursor((result["x"],result["y"]))
+                winguicommon.drag((result["move_x"],result["move_y"]))
+            else:
+                raise Exception("액션 잘못 입력")
+
+        except Exception as e:
+            print("마우스 액션 실패!")
+            return False
+
+        return True
+
+    def parseMousePattern(self,text):
+        '''
+        마우스 좌,우 클릭 및 좌표 값 확인
+
+        @param
+            text - 마우스 패턴
+
+        @return
+            마우스 좌,우 클릭 및 좌표 값
+        '''
+        result = {}
+
+        try:
+            x = 0
+            y = 0
+            move_x = 0
+            move_y = 0
+            # 패턴 파일의 내용 중 마우스 버튼에 대한 부분 획득
+            action_list = str(text).split(":")
+
+            # x,y 좌표 획득
+            existing_location = action_list[1].split(",")
+
+            # 드래그 일 경우
+            if len(action_list) == 3:
+                action = DRAG
+                changed_location = action_list[2].split(",")
+                # 기존 마우스 포인터 위치 저장
+                x = existing_location[0]
+                y = existing_location[1]
+                # 바꾼 마우스 포인터 위치 저장
+                move_x = changed_location[0]
+                move_y = changed_location[1]
+            # 마우스 좌클릭 일 때
+            elif action_list[0].find("Button.left") != -1:
+                action = LEFT
+                x = existing_location[0]
+                y = existing_location[1]
+            # 마우스 우클릭 일 때
+            elif action_list[0].find("Button.right") != -1:
+                action = RIGHT
+                x = existing_location[0]
+                y = existing_location[1]
+            else:
+                action = 0
+
+            result = {"action":action,"x":x,"y":y,"move_x":move_x,"move_y":move_y}
+
+        except Exception as e:
+            #todo:logging
+            pass
+
+        return result
 
 if __name__ == '__main__':
     a = Dbsafergui()
-    a.start(MANAGERPATH)
-    a.login()
-    a.viewControlPolicy()
-    a.viewControlObject()
-    a.viewMonitoring()
-    a.viewSetting()
-    a.viewLog()
-
-# Default 값을 파일에 저장하여 기본적인 기능 테스트시에 Case를 제공(1번)
-# 마우스 좌표값 파일 저장 (2번)
-# 좌표 값 순서대로 클릭 하여 진행
-# 창 크기, 위치를 절대적인 값을 움직여서 항상 객체가 있는곳은 좌표값이 일치함
-# 정책 관리
-    # DBMS
-        # 접속 제어
-            #(72,112)
-            # (150,92)
-            #(172,105)
-        # 권한 제어
-            # (72,112)
-            # (150,92)
-            # (198,120)
-    # FTP
-        # 접속 제어
-            # (72,112)
-            # (153,142)
-            # (172,157)
-        # 권한 제어
-            # (72,112)
-            # (153,142)
-            # (172,168)
-    # 터미널
-        # 접속 제어
-            # (72,112)
-            # (180,188)
-            # (182,202)
-        # 권한 제어
-            # (72,112)
-            # (180,188)
-            # (182,214)
-
-# 객체 관리 (34,136)
-    #서비스(184,93)
-        #DB(177,103)
-        #FTP(177,131)
-        #TERMINAL(177,139)
-    # 인스턴스 169 157
-    # IP 주소 169 167
-    # 접속 계정 169 184
-    # 어플리케이션 162 207
-    # 보안계정 162 225
-    # 데이터마스킹 162 236
-    # 테이블/컬럼 162 250
-    # 정형 쿼리162 268
-    # 시간 162 281
-    # 명령어 162 296
-# 모니터링 (49,177)
-    #서비스 로그
-        # 174 108
-        # 174 118
-        # 174 139
-            #조회 1074 107
-    #기타
-        #관리자 192 170
-        #시스템 192 182
-        #경고 192 203
-            #조회 515 142
-# 로그조회 (45,200)
-
-# 유지 보수(36,237)
-
-# 동작 설정 (36,275)
+    #a.start(MANAGERPATH)
+    #a.login()
+    a.runTestCase("target.txt")
