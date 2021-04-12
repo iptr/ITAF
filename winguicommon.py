@@ -3,9 +3,7 @@ import pyscreenshot
 import pyautogui
 import time
 import win32api
-import keyboard
 from win32 import win32gui
-from pynput import mouse
 
 
 def runWindowCommand(command=""):
@@ -135,7 +133,7 @@ def clickMouse(pos=(),click=1,interval=1,button="left",double=0):
         pos - x,y 좌표
         click - 원하는 클릭 횟수
         interval - 클릭 간격
-        button - 마우스 버튼
+        button - 마우스 버튼(좌클릭 - left, 우클릭 - right)
         double - 더블 클릭 여부
 
     @return
@@ -406,27 +404,6 @@ def moveWindow(title = "",x_pos = 0, y_pos = 0):
         return False
 
     return True
-
-def on_click(x,y,button,pressed):
-    '''
-    클릭 하였을 때 마우스 이벤트 지점 확인
-
-    '''
-    if pressed == True:
-        open("mouseTracer.txt","w").close()
-        fp = open("mouseTracer.txt","a")
-        fp.write(str(x)+","+str(y))
-        fp.close()
-
-def mouseTracer():
-    '''
-    마우스 커서 확인
-
-    '''
-    with mouse.Listener(on_click=on_click) as listener:
-        # if keyboard.is_pressed("c"):
-        #     return 0
-        listener.join()
 
 if __name__ == '__main__':
     pass
