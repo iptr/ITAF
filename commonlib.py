@@ -385,9 +385,6 @@ def longToB(num:int):
     """
     return pack('>I',int(num))
 
-if __name__ == '__main__':
-    pass
-
 def byteToNum(bytestr:bytes, sign=False):
     if len(bytestr) == 1:
         format = '>B'
@@ -402,3 +399,13 @@ def byteToNum(bytestr:bytes, sign=False):
     if sign:
         format.lower()
     return int(unpack(format, bytestr)[0])
+
+def getBoolStr(text):
+    true_str = 'true'
+    if text.lower() == true_str:
+        return True
+    return False
+    
+
+if __name__ == '__main__':
+    pass

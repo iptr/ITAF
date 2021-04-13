@@ -411,7 +411,6 @@ class OmsTester:
     uid = None
     conf = None
     scenario = None
-    vnic = None
     exp_data = {}
     
     def __init__(self):
@@ -421,36 +420,22 @@ class OmsTester:
     def setVIP(self):
         ifcs = pu.net_if_addrs()
         vuser_nic = self.conf['Common']['vuser_nic'].lower()
-        vuser_ip = self.conf['Common']['vuser_ip'].lower()
+        self.vuser_ip = self.conf['Common']['vuser_ip'].lower()
         netmask = self.conf['Common']['vuser_netmask'].lower()
         cur_nic_list = list(ifcs.keys())
+        
         # 설정의 VUSER_NIC가 잘못된 값일 경우 예외 발생
-
         if vuser_nic not in cur_nic_list:
             raise Exception('%s Interface Not exist!'%vuser_nic)
-        
-        # IP가 등록되어 있는지 확인
-        for nic in cur_nic_list:
-            if ifcs[nic][0][1] == vuser_ip:
-                self.vnic = nic
-                return self.vnic
-        
+                
         # 가상 IP 등록
-        cmd = 'ifconfig %s %s netmask %s up'
-        for i in range(65536):
-            vnic = vuser_nic + ':' + str(i)
-            if vnic not in cur_nic_list:
-                if 0 != os.system(cmd%(vnic, vuser_ip, netmask)):
-                    raise Exception('Failed to add VIP!')
-                self.vnic = vnic
-                return self.vnic
+        cmd = 'ip addr add %s/%s dev %s 2> /dev/null'
+        os.system(cmd%(self.vuser_ip, netmask, vuser_nic))        
                 
     def cleanUpVIP(self):
         # 가상 IP 제거
-        cmd = 'ifconfig %s down'
-        if 0 != os.system(cmd%self.vnic):
-            raise Exception("Failed to remove VIP")
-        self.vnic == None
+        cmd = 'ip addr del %s/%s dev %s 2> /dev/null'
+        os.system(cmd%self.vnic)
         
     def setConf(self, uid = None, conf:dict = None, scenario:list = None):
         if None == self.uid:
@@ -493,9 +478,9 @@ class OmsTester:
                 self.scenario.append(temp_col)
             
         self.host = self.conf['DBSAFER']['gw']
+        self.conf['Common']['start_after_deploy'] = (
+            getBoolStr(self.conf['Common']['start_after_deploy']))
         
-        if self.vnic != None:
-            self.cleanUpVIP()
         self.setVIP()
             
     def connect(self):
@@ -509,6 +494,7 @@ class OmsTester:
         INTERVAL_SEC = 100
         MAX_FAILS = 2
         sock = skt.socket(skt.AF_INET, skt.SOCK_STREAM)
+        sock.bind((self.vuser_ip,0))
         if pf.system().lower() == 'windows':
             sock.ioctl(skt.SIO_KEEPALIVE_VALS,(1,30000,3000))
         else:
@@ -621,7 +607,19 @@ class OmsTester:
         
         return ret_data
         
-    def runTest(self):
+    def runTest(self, resq:mp.Queue, signal:mp.Value):
+        '''
+        @param
+            resq : 중간 및 최종결과를 부모 프로세스에 전달하기 위한 큐
+                ready : 준비 단계가 끝난 상태
+                itmres : 테스트 중간에 전달할 결과
+                endres : 테스트 종료 및 최종 결과
+            signal : 부모 -> 자식 테스트 시그널 전달용 공유 메모리
+                0 : 프로세스 시작시 기본 값
+                1 : 테스트 수행
+                2 : 테스트 일시 정지
+                3 : 테스트 강제 종료
+        '''
         pktparser = self.parser.readPayload
         prepare_mode = True
         
@@ -696,6 +694,14 @@ class OmsTester:
                     
             if 0 == cnt:
                 prepare_mode = False
+                if 0 == signal.value:
+                    resq.put((self.uid,'ready'))
+                    while True:
+                        if signal.value > 0:
+                            break
+                        time.sleep(1)
+
+                
                     
 def makeVusers(vuser_list_csv):
     """
@@ -735,11 +741,32 @@ def runTest(vusers):
     resq = mp.Queue()
     signal = mp.Value('d', 0)
     
+    # Create Processes
     procs = []
+    procs_ready = []
     for vuser in vusers:
-        proc = mp.Process(target=vuser.runTest, args=())
+        proc = mp.Process(target=vuser.runTest,
+                          args=(resq, signal,))
         proc.start()
         procs.append(proc)
+    
+    start_after_prepare = (
+        getBoolStr(vusers[0].conf['Common']['start_after_deploy']))
+    if start_after_prepare == False:
+        signal.value = 1
+    # Getting all kinds of data from child processes    
+    while True:
+        # Getting status from process
+        if resq.empty == False:
+            buf = resq.get(block = False, timeout = 5)
+            if 'ready' == buf[1]:
+                procs_ready.append(buf[0])
+                
+            
+                    
+        
+        pass
+    
     
     for proc in procs:
         proc.join()

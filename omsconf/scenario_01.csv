@@ -1,0 +1,91 @@
+#[Session Number 설명]
+# TCP 접속한 Session Number동안 요청을 수행한다
+# Ex) 아래의 경우 0번째 접속한 TCP 세션에서 3가지 요청을 수행하고 접속을 종료한다.
+# 0,VersionReq,...
+# 0,PolicyReq,...
+# 0,IPCheckReq,...
+
+# [Request Code 설명]
+# VersionReq : OmsDms에 버전을 요청한다
+# PolicyReq : 정책을 요청한다.
+# IPCheckReq : Client의 IP 주소를 전송한다.
+# LoginUnikeyReq : CertID 사용 유무 확인 요청한다.
+# LoginReq : CertID와 패스워드로 로그인한다.
+# SaveEnvReq : Client 환경정보 전송한다.
+# SerialCheckReq : Serial 확인 요청(서비스 변경 유무 확인)
+# Service0111Req : 0111형태로 서비스 목록 요청
+# Service0112Req : 0112형태로 서비스 목록 요청
+# LoopBackMsgReq : Client IP로 LoopBack 메시지를 요청
+# LogoutReq : 로그아웃을 요청
+# AliveCheckReq : 로그인 상태에서 일정 주기(30~120초 간격)로 상태 체크 요청
+#
+# [Delay to Next 설명]
+# 현재 요청 이후 다음 요청까지의 지연시간
+#
+# [Expected Response Code 설명]
+# VERSION_RET : 버전요청에 대한 정상 응답 코드(보통 119가 들어옴)
+# POLICY_RET : 정책요청에 대한 정상 응답 코드(정책이 함께 들어옴)
+# POLICY_ERR : 정책요청에 대한 실패 응답 코드
+# IP_CHECK_RET : IP 주소 전송에 대한 정상 응답 코드
+# CERTID_NOT_LOGGED_IN : CertID 사용유무 요청에 대해 미사용 응답 코드(해당 ID 사용가능)
+# CERTID_LOGGED_IN : CertID 사용유무 요청에 대해 사용 응답 코드(해당 ID 사용 중)
+# CERTID_LOGGED_ERR : CertID 사용 유무 요청 에러 코드
+# LOGIN_RET_SHA256 : 로그인 성공 응답 코드
+# LOGIN_ERR : 로그인 에러 응답코드
+# LOGIN_ERR_PASSWD : 로그인 패스워드 에러 코드
+# LOGIN_ERR_LOCK_TEMP : 계정 임시 잠금 상태 코드
+# LOGIN_ERR_LOCK : 계정 잠금 상태 코드
+# LOGIN_ERR_EXPIRY : 계정 만료 상태 코드
+# LOGIN_ERR_DOUBLE_ACCESS_DENY : 계정 이중 로그인 거부 응답 코드
+# LOGIN_ERR_NOT_EXIST : 존재하지 않는 계정 응답 코드
+# SAVE_ENV_RET : Client 환경 정보 저장 완료 코드
+# SAVE_ENV_ERR : Client 환경 정보 저장 실패 코드
+# SERIAL_RET : 서비스 변경 유무 체크 정상 응답 코드
+# SERIAL_ERR : 서비스 변경 유무 체크 에러 응답 코드
+# SERIAL_LOGOUT : 로그 아웃 응답 코드
+# SERIAL_SAME_IP : 같은 IP가 존재할 경우 응답 코드
+# SERVICE_0112_START_RET : 서비스 목록 응답 코드
+# ALIVE_RET : AliveCheckReq에 대한 정상 응답
+# ALIVE_ERR : AliveCheckReq에 대한 에러 응답
+# ALIVE_LOGOUT : 해당 계정 로그아웃 상태로 변경됨
+# ALIVE_SAME_IP : 동일 IP 사용 상태 응답
+#
+# [Expected Message 설명]
+# 일부 Response는 응답 코드만 오는것이 아니라 추가 메시지가 오는 경우가 있는데
+# 검증을 위해 예측되는 메시지를 입력한다.
+# 해당 컬럼에서 '%'로 표시되는 내용은 테스트 사전에 저장되는 데이터를 의미하며
+# 해당 시나리오를 사전에 한번 수행해서 응답받은 메시지 데이터가 저장된다.
+# '@'식별자도 사용이 가능한데 응답 메시지값을 사전에 파일로 저장했을 경우
+# 해당 파일의 내용을 검증 데이터로 사용할 수 있다.
+#
+# [Config to modify 설명]
+# vuserXX.conf의 내용이 테스트 기본설정값으로 지정되는데
+# 테스트 중간에 설정값을 변경해야 될 경우 해당 컬럼의 내용으로 변경하여 진행한다.
+# 설정을 여러개 바꿀 경우 다음 컬럼에 연속으로 작성한다.
+# 설정내 ","(comma)가 있을 경우 ""(Double Quotation)으로 값을 입력해야 한다.
+# 사용방법: [설정그룹명].[설정명]=[설정값]
+# 사용 예 : OMSDMS.MAC_ADDR="12:34:56:78:90:12,FF:EE:DD:CC:BB:AA",DBSAFER.GW=192.168.2.204
+#
+# Session Number, Request Code, Delay to Next, Method to Verify, Expected Response Code, Expected Message, Config to modify 
+0,VersionReq,0,VERSION_RET,%version,VUSER_IP=192.168.2.149
+1,VersionReq,0,VERSION_RET,%version,
+1,PolicyReq,0,POLICY_RET,%policy,
+1,IPCheckReq,0,IP_CHECK_RET,%localip,
+2,LoginUnikeyReq,0,CERTID_NOT_LOGGED_IN,
+2,LoginReq,0,LOGIN_RET_SHA256,
+2,SaveEnvReq,0,SAVE_ENV_RET,
+3,SerialCheckReq,0,SERIAL_RET,%vuser_serial,
+3,Service0112Req,0,SERVICE_0112_START_RET,%vuser_service,
+4,LoopBackMsgReq,0,LOOPBACK_RET,
+5,LogoutReq,0,LOGOUT_RET,
+6,VersionReq,0,VERSION_RET,119,@omsconf/vuser02.conf
+7,VersionReq,0,VERSION_RET,%version,
+7,PolicyReq,0,POLICY_RET,%policy,
+7,IPCheckReq,0,IP_CHECK_RET,%vuser_ip,
+8,LoginUnikeyReq,0,CERTID_NOT_LOGGED_IN,
+8,LoginReq,0,LOGIN_RET_SHA256,
+8,SaveEnvReq,0,SAVE_ENV_RET,
+9,SerialCheckReq,0,SERIAL_RET,%vuser_serial,
+9,Service0112Req,0,SERVICE_0112_START_RET,@vuser01_service.txt,
+10,LoopBackMsgReq,0,LOOPBACK_RET,
+11,LogoutReq,0,LOGOUT_RET,
