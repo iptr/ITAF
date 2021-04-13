@@ -67,7 +67,7 @@
 # 사용 예 : OMSDMS.MAC_ADDR="12:34:56:78:90:12,FF:EE:DD:CC:BB:AA",DBSAFER.GW=192.168.2.204
 #
 # Session Number, Request Code, Delay to Next, Method to Verify, Expected Response Code, Expected Message, Config to modify 
-0,VersionReq,0,VERSION_RET,%version,VUSER_IP=192.168.2.149
+0,VersionReq,0,VERSION_RET,%version,
 1,VersionReq,0,VERSION_RET,%version,
 1,PolicyReq,0,POLICY_RET,%policy,
 1,IPCheckReq,0,IP_CHECK_RET,%localip,
