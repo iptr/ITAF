@@ -56,12 +56,10 @@ class InputTracer:
             # 위치가 변경 된 것을 확인(드래그)
             if global_x != str(x) or global_y != str(y):
                 fp.write("Button.drag"+":"+global_x+","+global_y+":"+str(x)+","+str(y)+ "\n")
-                print("Button.drag" + ":" + global_x + "," + global_y + ":" + str(x) + "," + str(y) + "\n")
                 fp.close()
             # 위치 변경 안 되었 을 때(일반 클릭)
             else:
                 fp.write(str(button) + ":" + global_x + "," + global_y + "\n")
-                print(str(button) + ":" + global_x + "," + global_y + "\n")
                 fp.close()
             global_x = ""
             global_y = ""
@@ -86,7 +84,6 @@ class InputTracer:
         fp = open(global_path,'a+')
         # 입력한 키를 파일에 저장
         fp.write("keyboard"+":"+str(key)+"\n")
-        print("keyboard" + ":" + str(key) + "\n")
         fp.close()
 
         return False
