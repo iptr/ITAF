@@ -4,6 +4,7 @@ import pyautogui
 import time
 import win32api
 from win32 import win32gui
+from pynput.keyboard import Key, Controller
 
 
 def runWindowCommand(command=""):
@@ -241,6 +242,37 @@ def upDownOneKey(charactor):
         pyautogui.keyDown(charactor)
         # 키보드 자판을 누른 후 뗌
         pyautogui.keyUp(charactor)
+    except Exception as e:
+        return False
+
+    return True
+
+def keyboardAction(key):
+    '''
+    Key 를 이용하여 키보드 액션을 취함
+
+    @param
+        key - 키보드 액션 키
+
+    @return
+        True - 성공 , 무시하고 진행
+        False - 실패
+    '''
+    try:
+        keyboard = Controller()
+        if len(key) == 0:
+            return True
+
+        # 타입이 Key 인 경우
+        if key.find("Key.") != -1:
+            key = Key[key.split(".")[1]]
+        # escape 문자 무시
+        elif key.find("\\") != -1:
+            return True
+
+        keyboard.press(key)
+        keyboard.release(key)
+
     except Exception as e:
         return False
 
