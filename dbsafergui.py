@@ -92,33 +92,37 @@ class Dbsafergui:
             True - 성공
             False - 실패
         '''
-        # 마우스 트레이서를 이용한 결과를 읽어옴
+        # 트레이서를 이용한 결과를 읽어옴
         pattern_list = commonlib.getSplitNewLineList(pattern_file_path)
 
         if len(pattern_list) == 0:
             return False
 
-        # 패턴에 맞추어 마우스 컨트롤
+        # 패턴에 맞추어 컨트롤
         for i in range(len(pattern_list)):
-            # 마우스 패턴 파싱
-            result = Dbsafergui.parseMousePattern(self,pattern_list[i])
+            # 패턴 파싱
+            result = Dbsafergui.parsePattern(self,pattern_list[i])
             if len(result) == 0:
                 return False
 
-            # 파싱 된 결과를 토대로 마우스 액션 시작
-            if Dbsafergui.runMouseAction(self,result) == False:
+            # 파싱 된 결과를 토대로 액션 시작
+            if result["kind"] == "mouse":
+                if Dbsafergui.runMouseAction(self,result) == False:
+                    return False
+            elif result["kind"] == "keyboard":
+                if Dbsafergui.runKeyboardAction(self,result) == False:
+                    return False
+            else:
                 return False
 
         return True
 
-    def runMouseAction(self,result,x=0,y=0):
+    def runMouseAction(self,result):
         '''
         마우스 정보를 받아 액션을 취함
 
         @param
-            action - 마우스 액션
-            x - 드래그시 x 좌표
-            y - 드래그시 y 좌표
+            result - 취해야 하는 액션 map
 
         @return
             True - 성공
@@ -144,53 +148,89 @@ class Dbsafergui:
 
         return True
 
-    def parseMousePattern(self,text):
+    def runKeyboardAction(self,result):
         '''
-        마우스 좌,우 클릭 및 좌표 값 확인
+        키보드 정보를 받아 액션을 취함
 
         @param
-            text - 마우스 패턴
+            result - 취해야 하는 액션 map
 
         @return
-            마우스 좌,우 클릭 및 좌표 값
+            True - 성공
+            False - 실패
+        '''
+
+        if winguicommon.keyboardAction(result["command"]) == False:
+            return False
+
+        return True
+
+    def parsePattern(self,text):
+        '''
+        마우스 좌,우 클릭 및 좌표 값 확인
+        키보드 이벤트 확인
+
+        @param
+            text - 등록된 패턴
+
+        @return
+            마우스 좌,우 클릭 및 좌표 값, 키보드 입력 값
         '''
         result = {}
 
         try:
-            x = 0
-            y = 0
-            move_x = 0
-            move_y = 0
             # 패턴 파일의 내용 중 마우스 버튼에 대한 부분 획득
             action_list = str(text).split(":")
 
-            # x,y 좌표 획득
-            existing_location = action_list[1].split(",")
+            # 읽은 내용이 마우스, 키보드와 관련 없는 내용일 경우 에러 처리
+            if action_list[0].find("Button") == -1 and action_list[0].find("keyboard") == -1:
+                return result
 
-            # 드래그 일 경우
-            if len(action_list) == 3:
-                action = DRAG
-                changed_location = action_list[2].split(",")
-                # 기존 마우스 포인터 위치 저장
-                x = existing_location[0]
-                y = existing_location[1]
-                # 바꾼 마우스 포인터 위치 저장
-                move_x = changed_location[0]
-                move_y = changed_location[1]
-            # 마우스 좌클릭 일 때
-            elif action_list[0].find("Button.left") != -1:
-                action = LEFT
-                x = existing_location[0]
-                y = existing_location[1]
-            # 마우스 우클릭 일 때
-            elif action_list[0].find("Button.right") != -1:
-                action = RIGHT
-                x = existing_location[0]
-                y = existing_location[1]
+            # 마우스 일때
+            if action_list[0].find("Button") != -1:
+
+                x = 0
+                y = 0
+                move_x = 0
+                move_y = 0
+                action = -1
+
+                # x,y 좌표 획득
+                existing_location = action_list[1].split(",")
+
+                # 드래그 일 경우
+                if len(action_list) == 3:
+                    action = DRAG
+                    changed_location = action_list[2].split(",")
+                    # 기존 마우스 포인터 위치 저장
+                    x = existing_location[0]
+                    y = existing_location[1]
+                    # 바꾼 마우스 포인터 위치 저장
+                    move_x = changed_location[0]
+                    move_y = changed_location[1]
+                # 마우스 좌클릭 일 때
+                elif action_list[0].find("Button.left") != -1:
+                    action = LEFT
+                    x = existing_location[0]
+                    y = existing_location[1]
+                # 마우스 우클릭 일 때
+                elif action_list[0].find("Button.right") != -1:
+                    action = RIGHT
+                    x = existing_location[0]
+                    y = existing_location[1]
+                else:
+                    action = 0
+
+                result = {"kind": "mouse", "action": action, "x": x, "y": y, "move_x": move_x, "move_y": move_y}
+
+            # 키보드 일때
+            elif action_list[0].find("keyboard") != -1:
+                command = action_list[1].replace("'",'')
+                command = command.replace('"','')
+                result = {"kind": "mouse", "command":command}
+
             else:
-                action = 0
-
-            result = {"action":action,"x":x,"y":y,"move_x":move_x,"move_y":move_y}
+                raise Exception("알수없는 값!")
 
         except Exception as e:
             #todo:logging
