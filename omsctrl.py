@@ -2,17 +2,20 @@ import os
 import socket as skt
 import multiprocessing as mp
 import asyncio
+from ipaddress import IPv4Network
+from glob import glob
 import binascii as ba
 import platform as pf
 import time
 import psutil as pu
 from commonlib import *
 
+PERF_TESTER_CONF = 'omsconf/perf_tester.conf'
 OMS_DMS_PORT = 50011
 MAX_RECV_SIZE = 4192
 TIME_OUT_SEC = 30
-VUSER_LIST_COLS_MIN = 3
-SCENARIO_COLS_MIN = 5
+SCENARIO_COLS_MIN = 3
+SCENARIO_COLS_MAX = 5
 
 #Request Command Code
 VERSION_REQ = 10
@@ -95,26 +98,28 @@ class OmsPktMaker:
     '''
     OMS_DMS 테스트를 위한 작업 패킷을 만들기 위한 클래스
     '''
-    def setConf(self, conf):
-        self.host = conf['DBSAFER']['gw']
-        cert_id_pw = conf['OMSDMS']['cert_id_pw'].split() 
-        self.sno = cert_id_pw[0]
-        self.pw = cert_id_pw[1]
-        self.privip = conf['Common']['vuser_ip']
-        self.pubip = conf['OMSDMS']['public_ip']
-        self.name = conf['OMSDMS']['user_name']
-        self.tel = conf['OMSDMS']['tel']
-        self.part = conf['OMSDMS']['part']
-        self.position = conf['OMSDMS']['position']
-        self.business = conf['OMSDMS']['business']
-        self.env_ip = conf['OMSDMS']['env_ip']
-        self.mac_addr = conf['OMSDMS']['mac_addr']
-        self.nic_count = conf['OMSDMS']['nic_count']
-        self.nat_ver = conf['OMSDMS']['nat_version']
-        self.com_name = conf['OMSDMS']['com_name']
-        self.cpu_info = conf['OMSDMS']['cpu_info']
-        self.mem_info = conf['OMSDMS']['mem_info']
-        self.ipaddr = self.privip
+    
+    def setConf(self, cert_id):
+        self.cert_id = cert_id[0]
+        self.cert_pw = cert_id[1]
+        self.nic_name = cert_id[2]
+        self.priv_ip = cert_id[3]
+        self.public_ip = cert_id[4]
+        self.target_host = cert_id[5]
+        self.mac_addr = cert_id[6]
+        self.com_name = cert_id[7]
+        self.nat_version = cert_id[8]
+        self.cpu_info = cert_id[9]
+        self.mem_info = cert_id[10]
+        self.nic_count = cert_id[11]
+        self.user_name = ''
+        self.tel = ''
+        self.part = ''
+        self.position = ''
+        self.business = ''
+        self.env_ip = str(self.priv_ip + ',' + self.public_ip)
+        self.mac_addr = self.mac_addr
+        self.ipaddr = self.priv_ip
         self.unikey = self.makeUnikey()
     
     def makeUnikey(self):
@@ -144,19 +149,19 @@ class OmsPktMaker:
         '''
         strtype = struct_type.lower()
         payload = longToB(2)
-        payload += usToB(len(self.sno)) + self.sno.encode()
+        payload += usToB(len(self.cert_id)) + self.cert_id.encode()
         
         if struct_type == 'v4nopw':
             payload += usToB(0)
         else:
-            payload += usToB(44) + encode_b64(get_hash_bytes(self.pw))
+            payload += usToB(44) + encode_b64(get_hash_bytes(self.cert_pw))
         
-        payload += usToB(len(self.name)) + self.name.encode()
+        payload += usToB(len(self.user_name)) + self.user_name.encode()
         payload += usToB(len(self.tel)) + self.tel.encode()
         payload += usToB(len(self.part)) + self.part.encode()
         payload += usToB(len(self.position)) + self.position.encode()
         payload += usToB(len(self.business)) + self.business.encode()
-        payload += usToB(len(self.privip)) + self.privip.encode()
+        payload += usToB(len(self.priv_ip)) + self.priv_ip.encode()
         
         if strtype in ('unikey', 'v4', 'v4nopw') :
             #unikey
@@ -165,12 +170,12 @@ class OmsPktMaker:
                 
             if strtype == 'v4':
                 #pw_sha256
-                payload += usToB(44) + encode_b64(get_hash_bytes(self.pw))
+                payload += usToB(44) + encode_b64(get_hash_bytes(self.cert_pw))
                 #pw_sha512
                 payload += usToB(128)
-                payload += ba.hexlify(get_hash_bytes(self.pw, algorithm='sha512'))
+                payload += ba.hexlify(get_hash_bytes(self.cert_pw, algorithm='sha512'))
                 #public ip
-                payload += usToB(len(self.pubip)) + self.pubip.encode()
+                payload += usToB(len(self.public_ip)) + self.public_ip.encode()
                 #login_tool
                 payload += longToB(0)
             
@@ -183,7 +188,7 @@ class OmsPktMaker:
         payload = usToB(len(self.env_ip)) + self.env_ip.encode()
         payload += usToB(len(self.mac_addr)) + self.mac_addr.encode()
         payload += usToB(len(self.nic_count)) + self.nic_count.encode()
-        payload += usToB(len(self.nat_ver)) + self.nat_ver.encode()
+        payload += usToB(len(self.nat_version)) + self.nat_version.encode()
         payload += usToB(len(self.com_name)) + self.com_name.encode()
         payload += usToB(len(self.cpu_info)) + self.cpu_info.encode()
         payload += usToB(len(self.mem_info)) + self.mem_info.encode()
@@ -288,6 +293,7 @@ class OmsPktParser:
     '''
     
     def readPolicyRes(self, payload):      
+        SIGN_EOF_POLICY_RES = b'\x00\x1b\xff\xff\xa9YCK'
         policy_n_t = {}
         policy_n_t['num'] = []
         policy_n_t['title'] = []
@@ -295,7 +301,7 @@ class OmsPktParser:
         policy_n_t['value'] = []
         pl = payload
         while True:
-            startp = pl.find(b'\x00\x1b\xff\xff\xa9YCK')
+            startp = pl.find(SIGN_EOF_POLICY_RES)
             if startp > -1:
                 pl = pl[8:]
                 policy_n_t['num'].append(byteToNum(pl[0:4]))
@@ -343,7 +349,6 @@ class OmsPktParser:
         
         return message
                 
-    
     def readPayload(self, payload, parse_msg = False):
         read_func_list = {
             usToB(VERSION_RET):self.readMsg,
@@ -378,8 +383,8 @@ class OmsPktParser:
             usToB(ALIVE_ERR):ALIVE_ERR,
             usToB(ALIVE_LOGOUT):ALIVE_LOGOUT,
             usToB(ALIVE_SAME_IP):ALIVE_SAME_IP,
-            
         }
+        
         if False == parse_msg:
             read_func_list[usToB(VERSION_RET)] = VERSION_RET
             read_func_list[usToB(POLICY_RET)] = POLICY_RET
@@ -409,82 +414,78 @@ class OmsTester:
     '''
     패킷을 쏘고 받는 클래스
     '''
-    uid = None
-    conf = None
+    gconf = None
+    cert_id_list = None
     scenario = None
     exp_data = {}
     
-    def __init__(self):
+    def __init__(self,seqnum, scen_path):
         self.maker = OmsPktMaker()
         self.parser = OmsPktParser()
+        self.seqnum = seqnum
+        self.scenario_name = os.path.basename(scen_path)
+        self.scenario = get_list_from_csv(scen_path)
         
-    def setVIP(self):
-        ifcs = pu.net_if_addrs()
-        vuser_nic = self.conf['Common']['vuser_nic'].lower()
-        self.vuser_ip = self.conf['Common']['vuser_ip'].lower()
-        netmask = self.conf['Common']['vuser_netmask'].lower()
-        cur_nic_list = list(ifcs.keys())
+    def setConf(self, gconf:dict = None, 
+                cert_id_list:list = None, 
+                scenario:list = None):
         
-        # 설정의 VUSER_NIC가 잘못된 값일 경우 예외 발생
-        if vuser_nic not in cur_nic_list:
-            raise Exception('%s Interface Not exist!'%vuser_nic)
-                
-        # 가상 IP 등록
-        cmd = 'ip addr add %s/%s dev %s 2> /dev/null'
-        os.system(cmd%(self.vuser_ip, netmask, vuser_nic))        
-                
-    def cleanUpVIP(self):
-        # 가상 IP 제거
-        cmd = 'ip addr del %s/%s dev %s 2> /dev/null'
-        os.system(cmd%self.vnic)
-        
-    def setConf(self, uid = None, conf:dict = None, scenario:list = None):
-        if None == self.uid:
-            if str != type(uid):
-                raise Exception('Wrong vuserID')
-            self.uid = uid
-        
-        if None == self.conf and dict != type(conf):
-            raise Exception('Config Dict needed')
-        
-        if dict == type(conf):
-            self.conf = conf
-            self.maker.setConf(conf)
-        else:
-            self.maker.setConf(self.conf)
-            
-        if None == self.scenario and list != type(scenario):
-            raise Exception('Scenario List needed')
+        if type(gconf) == dict:
+            self.gconf = gconf
 
-        if list == type(scenario):
-            self.scenario = []    
-            for line in scenario:
-                temp_col = []
-                for i,col in enumerate(line):
-                    if i == 0:
-                        temp_col.append(int(col))
-                        continue
-                    if i == 1:
-                        temp_col.append(eval(('self.maker.make' + col)))
-                        continue
-                    if i == 2:
-                        temp_col.append(int(col))
-                        continue
-                    if i == 3:
-                        temp_col.append(eval(col))
-                        continue
-                    temp_col.append(col)
-                if len(temp_col) < SCENARIO_COLS_MIN:
-                    temp_col += ['' for i in range(SCENARIO_COLS_MIN - len(temp_col))]
-                self.scenario.append(temp_col)
+        if type(cert_id_list) == list:
+            self.cert_id_list = cert_id_list
+        
+        if type(scenario) == list:
+            self.scenario == scenario
+
+        if None in [self.gconf, self.cert_id_list, self.scenario]:
+            raise Exception('Not enough Configuration')
+
+        self.scenario = []
+        cols_types = [int,"'self.maker.make'+%s",
+        eval, str, int]
+        
+        for line in scenario:
+            if len(line) < SCENARIO_COLS_MIN:
+                continue
             
-        self.host = self.conf['DBSAFER']['gw']
+            temp_col = ['' for i in range(SCENARIO_COLS_MAX)]
+            for i, col in enumerate(line):
+                if i == 2:
+                    temp_col[i] = eval(cols_types[i]%col)
+                else:
+                    temp_col[i] = cols_types[i](col)
+                    
+            self.scenario.append(temp_col)
+            
         self.conf['Common']['start_after_deploy'] = (
             getBoolStr(self.conf['Common']['start_after_deploy']))
         
-        self.setVIP()
+    def setVIP(self, nic_name, vip):
+        ifcs = pu.net_if_addrs()
+        if None == nic_name:
+            nic_name = self.gconf['CONF']['nic_name'].lower()
+        cur_nic_list = list(ifcs.keys())
+        
+        # 설정의 NIC 이름이 잘못된 값일 경우 예외 발생
+        if nic_name not in cur_nic_list:
+            raise Exception('%s Interface Not exist!'%nic_name)
+                
+        # 가상 IP 등록
+        cidr = IPv4Network('0.0.0.0/' 
+                           + ifcs['nic_name'][0][2]).prefixlen
+        cmd = 'ip addr add %s/%s dev %s 2> /dev/null'
+        os.system(cmd%(vip, cidr, nic_name))
+                
+    def cleanUpVIP(self, vip, netmask, nic_name=None):
+        if None == nic_name:
+            nic_name = self.gconf['CONF']['nic_name'].lower()
+        # 가상 IP 제거
+        cmd = 'ip addr del %s/%s dev %s 2> /dev/null'
+        os.system(cmd%(vip, netmask, nic_name))
             
-    def connect(self):
+    def connect(self, src_ip, nic, dst_ip, port=OMS_DMS_PORT):
         '''
         Make Connection to Target OMS_DMS
         
@@ -494,8 +495,9 @@ class OmsTester:
         AFTER_IDLE_SEC = 100
         INTERVAL_SEC = 100
         MAX_FAILS = 2
+        self.setVIP(nic, src_ip)
         sock = skt.socket(skt.AF_INET, skt.SOCK_STREAM)
-        sock.bind((self.vuser_ip,0))
+        sock.bind((src_ip,0))
         if pf.system().lower() == 'windows':
             sock.ioctl(skt.SIO_KEEPALIVE_VALS,(1,30000,3000))
         else:
@@ -503,11 +505,13 @@ class OmsTester:
             sock.setsockopt(skt.IPPROTO_TCP, skt.SO_KEEPALIVE, AFTER_IDLE_SEC)
             sock.setsockopt(skt.IPPROTO_TCP, skt.SO_KEEPALIVE, INTERVAL_SEC)
             sock.setsockopt(skt.IPPROTO_TCP, skt.SO_KEEPALIVE, MAX_FAILS)
+        
         sock.setsockopt(skt.SOL_SOCKET, skt.SO_LINGER, pack('ii', 1, 0))
-        nic_name = (self.conf['Common']['vuser_nic']+'\0').encode('utf8')
+        nic_name = (nic+'\0').encode('utf8')
         sock.setsockopt(skt.SOL_SOCKET, skt.SO_BINDTODEVICE, nic_name)
         sock.settimeout(TIME_OUT_SEC)
-        sock.connect((self.host, OMS_DMS_PORT))
+        sock.connect((dst_ip, port))
+        
         return sock
     
     def parseCols(self, col):
@@ -607,176 +611,226 @@ class OmsTester:
                 ret_data[FILE_ERR] = (buf, ret_value[3])
         
         return ret_data
+    
+    def recvResponse(self, sock, step):
+        pktparser = self.parser.readPayload
+        res = b''
+        
+        while True:
+            SIGN_EOF_SERVICE_RES = b'\x01?\xff\xff\x00\x00CK'
+            SIGN_EOF_POLICY_RES = b'\x00\x1c\xff\xff\x00\x00CK'
+            buf = sock.recv(MAX_RECV_SIZE)
+            res += buf
+            
+            if step[1] in (self.maker.makeService0111Req,
+                           self.maker.makeService0112Req):
+                # 서비스 목록 Payload 뒷쪽에 DATA END 시그널이 있는지 확인
+                if buf[-8:] == SIGN_EOF_SERVICE_RES or b'' == buf:
+                    break
+                
+            elif step[1] == self.maker.makePolicyReq:
+                # 정책 목록 Payload 뒷쪽에 DATA END 시그널이 있는지 확인
+                if buf[-8:] == SIGN_EOF_POLICY_RES or b'' == buf:
+                    break
+                
+            else:
+                # 0바이트거나 최대 받는 크기보다 작은 내용을 받았을 경우(1회성 Recv)
+                if buf == b'' or len(buf) < MAX_RECV_SIZE:
+                    break
+        
+        if b'' == res:
+            print("No data")
+            return -1
+
+        # 파싱된 응답값
+        ret = pktparser(res, parse_msg=False)
+        return ret
+    
+    def runScenario(self, cert, resq:mp.Queue, signal:mp.Value, prepare_mode = False):
+        sock = None
+        cur_session = -1
+        prepare_mode = True
+        
+        # 시나리오 시작
+        for step in self.scenario:
+            
+            # 보안계정관련 정보 설정
+            self.maker.setConf(cert)
+                
+            # 시나리오에서 추가 옵션 처리 부분
+            if len(step) > SCENARIO_COLS_MIN:
+                for line in step[SCENARIO_COLS_MIN:len(step)]:
+                    if line.find('=') > -1:    
+                        tmp = line.split('=')
+                        key = tmp[0].split('.')
+                        value = tmp[1].strip()
+                        grp = key[0].strip()
+                        name = key[1].lower().strip()
+                        self.conf[grp][name] = value
+                self.setConf()
+            
+            # 현재 세션을 유지할지 확인
+            if int(step[0]) > cur_session:
+                if None != sock:
+                    sock.close()
+                sock = self.connect(cert[4],cert[2], cert[5],)
+                cur_session = int(step[0])        
+            
+            # 패킷 작성 후 전송
+            payload = step[1]()
+            sock.send(payload)
+            
+            # 응답 수신
+            res = self.recvResponse(sock, step)
+            
+            # res값을 검증할지 저장할지 결정
+            if False == prepare_mode:
+                result = self.verifyResData(step, res)
+                
+                if False in result[0:3]:
+                    print('%s %s %s %s Error : %s'
+                          %(self.uid,
+                            step[0],
+                            str(step[1]).split(' ')[2].split('.make')[1],
+                            str(result[3:6])))
+
+                time.sleep(int(step[4]))
+            else:
+                self.saveExpResult(step[3], res[3])
         
     def runTest(self, resq:mp.Queue, signal:mp.Value):
         '''
         @param
             resq : 중간 및 최종결과를 부모 프로세스에 전달하기 위한 큐
-                ready : 준비 단계가 끝난 상태
-                itmres : 테스트 중간에 전달할 결과
-                endres : 테스트 종료 및 최종 결과
+                ready : 준비 단계가 끝난 시그널
+                error : 테스트 중 에러 발생 시그널
+                itmres : 테스트 중간 결과 시그널
+                endres : 테스트 종료 및 최종 결과 시그널
             signal : 부모 -> 자식 테스트 시그널 전달용 공유 메모리
                 0 : 프로세스 시작시 기본 값
                 1 : 테스트 수행
                 2 : 테스트 일시 정지
                 3 : 테스트 강제 종료
         '''
-        pktparser = self.parser.readPayload
-        prepare_mode = True
         
-        for cnt in range(int(self.conf['Common']['repeat_count'])+1):
-            sock = None
-            cur_session = -1
-            for step in self.scenario:
-                if len(step) > SCENARIO_COLS_MIN:
-                    for line in step[SCENARIO_COLS_MIN:len(step)]:
-                        if line.find('=') > -1:    
-                            tmp = line.split('=')
-                            key = tmp[0].split('.')
-                            value = tmp[1].strip()
-                            grp = key[0].strip()
-                            name = key[1].lower().strip()
-                            self.conf[grp][name] = value
-                    self.setConf()
-                
-                if int(step[0]) > cur_session:
-                    if None != sock:
-                        sock.close()
-                    sock = self.connect()
-                    cur_session = int(step[0])        
-                
-                data = b''
-                payload = step[1]()
-                sock.send(payload)
-                
+        # 보안계정 목록 순서대로 진행
+        for cert in self.cert_id_list:
+            
+            # 시나리오를 한번 실행해서 예상 결과 저장
+            self.runScenario(cert, resq, signal, prepare_mode=True)
+            
+            if 0 == signal.value:
+                resq.put((self.uid,'ready'))
                 while True:
-                    buf = sock.recv(MAX_RECV_SIZE)
-                    data += buf
+                    if signal.value > 0:
+                        print()
+                        break
+                    time.sleep(1)
                     
-                    if step[1] in (self.maker.makeService0111Req,
-                                   self.maker.makeService0112Req):
-                        # 서비스 목록 Payload 뒷쪽에 DATA END 시그널이 있는지 확인
-                        if buf[-8:] == b'\x01?\xff\xff\x00\x00CK' or b'' == buf:
-                            break
-                        
-                    elif step[1] == self.maker.makePolicyReq:
-                        # 정책 목록 Payload 뒷쪽에 DATA END 시그널이 있는지 확인
-                        if  buf[-8:] == b'\x00\x1c\xff\xff\x00\x00CK' or b'' == buf:
-                            break
-                        
-                    else:
-                        # 0바이트거나 최대 받는 크기보다 작은 내용을 받았을 경우(1회성 Recv)
-                        if buf == b'' or len(buf) < MAX_RECV_SIZE:
-                            break
-                
-                # 파싱된 응답값
-                if data == b'':
-                    print('No data : ', result)
-                    continue
-                
-                ret = pktparser(data, parse_msg=False)
-                
-                # result값을 검증할지 저장할지 결정
-                if False == prepare_mode:
-                    result = self.verifyResData(step, ret)
+            # 시나리오 시작
+            self.runScenario(cert, resq, signal, prepare_mode=False)
+            
+            if 0 == signal.value:
+                resq.put((self.uid,'ready'))
+                while True:
+                    if signal.value > 0:
+                        break
+                    time.sleep(1)
+            
                     
-                    if False in result[0:3]:
-                        print('%s %s %s %s Error : %s'
-                              %(self.uid,
-                                step[0],
-                                cnt,
-                                str(step[1]).split(' ')[2].split('.make')[1],
-                                str(result[3:6])))
-                else:
-                    self.saveExpResult(step[4], ret[3])
-                
-                if prepare_mode == False:
-                    time.sleep(int(step[2]))
-                    
-            if 0 == cnt:
-                prepare_mode = False
-                if 0 == signal.value:
-                    resq.put((self.uid,'ready'))
-                    while True:
-                        if signal.value > 0:
-                            break
-                        time.sleep(1)
-
-                
-                    
-def makeVusers(vuser_list_csv):
+def setShooters():
     """
-    OMS_DMS 테스트에 필요한 각종 설정
+    실제 테스트를 수행하는 주체 프로세스를 생성함
     테스트 주체 및 대상에 대한 정보를 수록
-    Global Config
+    Global Config : perf_tester.conf
         
     Vuser Info
         vuser id
         Vuser Config
         Scenario
     """
-    vusers = []
+    shooters = []
+    gconf = get_file_conf(PERF_TESTER_CONF)
+    cert_id_list = get_list_from_csv(gconf['CONF']['cert_id_csv'])
+    scen_list = glob(gconf['CONF']['scenario_csvs'])
     
-    for line in get_list_from_csv(vuser_list_csv):
-        vuser = OmsTester()
-        vuserid = line[0]
-        conf = get_file_conf(line[1])
-        scenario = get_list_from_csv(line[2])
-        if len(line) > VUSER_LIST_COLS_MIN:
-            for i in range(VUSER_LIST_COLS_MIN, len(line)):
-                if '' != line[i]:
-                    temp = line[i].split('=')
-                    key = temp[0].split('.')
-                    grp = key[0].strip()
-                    name = key[1].strip().lower()
-                    conf[grp][name] = temp[1].strip()
-        vuser.setConf(vuserid, conf, scenario)
-        vusers.append(vuser)
+    for i, scen in enumerate(scen_list):
+        shooter = OmsTester(scen, i)
+        # 시나리오 파일 세팅하기
+        shooter.setConf(gconf, cert_id_list)
+        shooters.append(shooter)
         
-    return vusers
+    return shooters
 
-def runTest(vusers):
+def runShooters(shooters):
     '''
     실제 테스트 실행부
     '''
     resq = mp.Queue()
     signal = mp.Value('d', 0)
     
+    start_after_prepare = (
+        getBoolStr(shooters[0].gconf['CONF']['start_after_prepare']))
+    
+    if start_after_prepare == False:
+        signal.value = 1
+    
     # Create Processes
     procs = []
     procs_ready = []
-    for vuser in vusers:
-        proc = mp.Process(target=vuser.runTest,
+    cur_procs_stats = {}
+    procs_finish = []
+    result = []
+    
+    for shooter in shooters:
+        proc = mp.Process(target=shooter.runTest,
                           args=(resq, signal,))
         proc.start()
         procs.append(proc)
     
-    start_after_prepare = (
-        getBoolStr(vusers[0].conf['Common']['start_after_deploy']))
-    if start_after_prepare == False:
-        signal.value = 1
+    procs_cnt = len(procs)
     # Getting all kinds of data from child processes    
     while True:
         # Getting status from process
         if resq.empty == False:
             buf = resq.get(block = False, timeout = 5)
-            if 'ready' == buf[1]:
-                procs_ready.append(buf[0])
-                
             
-                    
-        
-        pass
-    
-    
+            if 'ready' == buf[1] and signal.value == 0:
+                procs_ready.append(buf[0])
+                if len(procs_ready) == procs_cnt:
+                    signal.value = 1
+                    print("%s Processes are start to run"%len(procs_ready))
+            
+            if 'error' == buf[1]:
+                procs_cnt -= 1
+                print('Error occured on #%s Process')
+            
+            if 'itmres' == buf[1]:
+                cur_procs_stats[buf[0]] = buf[2]
+                print('\n\n[Current Processes status]')
+                for key in cur_procs_stats:
+                    print(cur_procs_stats[key])
+            
+            if 'endres' == buf[1]:
+                procs_finish.append(buf[0])
+                result.append((buf[0],buf[2]))
+                if len(procs_finish) == procs_cnt:
+                    signal.value = 2
+                    break
+                
+            time.sleep(1)
+
     for proc in procs:
         proc.join()
+        
+    return result
 
-
-def closeTest():
+def showResult(result):
+    
     pass
 
 if __name__ == '__main__':
     # 준비과정에서 저거... NIC에 가상 IP 추가 내용 들어가줘야 됨 
-    vusers = makeVusers('omsconf/vuser_list.csv')
-    result = runTest(vusers)
+    shooters = setShooters()
+    result = runShooters(shooters)
+    showResult(result)

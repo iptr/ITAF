@@ -1,1 +1,1 @@
-Cert ID,Password,Private IP,Public IP,Target IP,NIC Name,Mac addr,Computer,Nat Version,CPU info,mem Info,NIC_Count
+#Cert ID(0),Password(1),NIC Name(2),Private IP(3),Public IP(4),Target IP(5),Mac addr(6),Computer NAME[7],Nat Version[8],CPU info[9],mem Info[10],NIC_Count[11]

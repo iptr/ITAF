@@ -1,0 +1,12 @@
+#세션 번호(0), 요청 코드(1), 예상 응답 코드(2), 예상 응답 메시지(3), 다음 딜레이(4)
+0,VersionReq,VERSION_RET,%version,0
+1,VersionReq,VERSION_RET,%version,0
+1,PolicyReq,POLICY_RET,%policy,0
+1,IPCheckReq,IP_CHECK_RET,%localip,0
+2,LoginUnikeyReq,CERTID_NOT_LOGGED_IN,,0
+2,LoginReq,LOGIN_RET_SHA256,,0
+2,SaveEnvReq,SAVE_ENV_RET,,0
+3,SerialCheckReq,SERIAL_RET,%vuser_serial,0
+3,Service0112Req,SERVICE_0112_START_RET,%vuser_service,0
+4,LoopBackMsgReq,LOOPBACK_RET,0
+5,LogoutReq,LOGOUT_RET,0
