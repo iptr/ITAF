@@ -189,10 +189,12 @@ class DBCtrl():
                 [[]]] list : Result of select query
 
         """
+        contents = []
+
         if self.checkDBExist(dbname) != 0 or self.checkTableExist(dbname,tblname) != 0:
             #self.lgr.debug("db or table name not exist")
             print("DB,TABLE!!")
-            return -1
+            return contents
 
         if len(cols) == 0:
             query = "select * from"
@@ -201,15 +203,14 @@ class DBCtrl():
         query += " %s.%s" % (dbname, tblname)
         if case != '':
             query += " where %s" % (case)
-        print(query)
+
         try:
             self.cur.execute(query)
         except Exception as e:
             print(e)
             #self.lgr.error(e)
-            return -1
+            return contents
 
-        contents = []
         if without_header == False:
             contents.append(self.getcolumns(dbname, tblname))
 
@@ -221,7 +222,7 @@ class DBCtrl():
                 contents.append(list(temp))
         except Exception as e:
             #self.lgr.error(e)
-            return -1
+            return contents
         return contents
 
     def delete(self,dbname='', tblname='', case=''):
