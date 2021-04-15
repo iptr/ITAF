@@ -405,6 +405,13 @@ def getBoolStr(text):
     if text.lower() == true_str:
         return True
     return False
+
+def divList(orglist, n):
+    n = int(n)
+    ret = [orglist[i*n:(i+1)*n] 
+            for i in range(
+                int((len(orglist)+n-1)/n))]
+    return ret
     
 
 if __name__ == '__main__':

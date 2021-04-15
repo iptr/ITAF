@@ -329,7 +329,6 @@ class OmsPktParser:
             message = message.decode()
         except Exception as e:
             pass
-       
         return message
             
     def readServiceRes(self, payload):
@@ -346,8 +345,14 @@ class OmsPktParser:
             else:
                 break
         message = payload[10:]
-        
         return message
+    
+    def errorHandler(self, payload):
+        print('Unknown Response Code : ', payload[0:8])
+        f = open('unknown_error.bin','wb')
+        f.write(payload)
+        f.close()
+        return 'Unknown Response Code'
                 
     def readPayload(self, payload, parse_msg = False):
         read_func_list = {
@@ -383,6 +388,7 @@ class OmsPktParser:
             usToB(ALIVE_ERR):ALIVE_ERR,
             usToB(ALIVE_LOGOUT):ALIVE_LOGOUT,
             usToB(ALIVE_SAME_IP):ALIVE_SAME_IP,
+            usToB(0):self.errorHandler,
         }
         
         if False == parse_msg:
@@ -396,7 +402,7 @@ class OmsPktParser:
         try:
             read_func = read_func_list[payload[0:2]]
         except Exception as e:
-            print(e, payload)
+            print('DEBUG# : ',e)
             return -1
         
         if type(read_func) == int:
@@ -419,16 +425,15 @@ class OmsTester:
     scenario = None
     exp_data = {}
     
-    def __init__(self,seqnum, scen_path):
+    def __init__(self, seqnum, scen_path):
         self.maker = OmsPktMaker()
         self.parser = OmsPktParser()
         self.seqnum = seqnum
         self.scenario_name = os.path.basename(scen_path)
-        self.scenario = get_list_from_csv(scen_path)
         
     def setConf(self, gconf:dict = None, 
                 cert_id_list:list = None, 
-                scenario:list = None):
+                scenario = None):
         
         if type(gconf) == dict:
             self.gconf = gconf
@@ -437,14 +442,14 @@ class OmsTester:
             self.cert_id_list = cert_id_list
         
         if type(scenario) == list:
-            self.scenario == scenario
+            self.scenario = scenario
 
         if None in [self.gconf, self.cert_id_list, self.scenario]:
             raise Exception('Not enough Configuration')
 
         self.scenario = []
-        cols_types = [int,"'self.maker.make'+%s",
-        eval, str, int]
+        cols_types = [int, "\'self.maker.make\' + \'%s\'",
+                      eval, str, int]
         
         for line in scenario:
             if len(line) < SCENARIO_COLS_MIN:
@@ -452,15 +457,15 @@ class OmsTester:
             
             temp_col = ['' for i in range(SCENARIO_COLS_MAX)]
             for i, col in enumerate(line):
-                if i == 2:
-                    temp_col[i] = eval(cols_types[i]%col)
+                if i == 1:
+                    temp_col[i] = eval((cols_types[i]%col))
                 else:
                     temp_col[i] = cols_types[i](col)
                     
             self.scenario.append(temp_col)
             
-        self.conf['Common']['start_after_deploy'] = (
-            getBoolStr(self.conf['Common']['start_after_deploy']))
+        self.gconf['CONF']['start_after_deploy'] = (
+            getBoolStr(self.gconf['CONF']['start_after_prepare']))
         
     def setVIP(self, nic_name, vip):
         ifcs = pu.net_if_addrs()
@@ -474,7 +479,7 @@ class OmsTester:
                 
         # 가상 IP 등록
         cidr = IPv4Network('0.0.0.0/' 
-                           + ifcs['nic_name'][0][2]).prefixlen
+                           + ifcs[nic_name][0][2]).prefixlen
         cmd = 'ip addr add %s/%s dev %s 2> /dev/null'
         os.system(cmd%(vip, cidr, nic_name))
                 
@@ -646,6 +651,7 @@ class OmsTester:
         ret = pktparser(res, parse_msg=False)
         return ret
     
+    #async def runScenario(self, cert, resq:mp.Queue, signal:mp.Value, prepare_mode = False):
     def runScenario(self, cert, resq:mp.Queue, signal:mp.Value, prepare_mode = False):
         sock = None
         cur_session = -1
@@ -653,20 +659,20 @@ class OmsTester:
         
         # 시나리오 시작
         for step in self.scenario:
-            
             # 보안계정관련 정보 설정
             self.maker.setConf(cert)
                 
             # 시나리오에서 추가 옵션 처리 부분
-            if len(step) > SCENARIO_COLS_MIN:
-                for line in step[SCENARIO_COLS_MIN:len(step)]:
+            if len(step) > SCENARIO_COLS_MAX:
+                for line in step[SCENARIO_COLS_MAX:len(step)]:
+                    print(line)
                     if line.find('=') > -1:    
                         tmp = line.split('=')
                         key = tmp[0].split('.')
                         value = tmp[1].strip()
                         grp = key[0].strip()
                         name = key[1].lower().strip()
-                        self.conf[grp][name] = value
+                        self.gconf[grp][name] = value
                 self.setConf()
             
             # 현재 세션을 유지할지 확인
@@ -677,11 +683,13 @@ class OmsTester:
                 cur_session = int(step[0])        
             
             # 패킷 작성 후 전송
-            payload = step[1]()
+            payload = eval(step[1])()
             sock.send(payload)
             
             # 응답 수신
             res = self.recvResponse(sock, step)
+            if res[3] == 'Unknown Response Code':
+                print(self.scenario_name, cert[0], step[1], payload)
             
             # res값을 검증할지 저장할지 결정
             if False == prepare_mode:
@@ -712,31 +720,34 @@ class OmsTester:
                 2 : 테스트 일시 정지
                 3 : 테스트 강제 종료
         '''
-        
+        stime = time.time()
         # 보안계정 목록 순서대로 진행
-        for cert in self.cert_id_list:
-            
+        for i, cert in enumerate(self.cert_id_list):
             # 시나리오를 한번 실행해서 예상 결과 저장
+            #asyncio.run(self.runScenario(cert, resq, signal, prepare_mode=True))
             self.runScenario(cert, resq, signal, prepare_mode=True)
-            
-            if 0 == signal.value:
-                resq.put((self.uid,'ready'))
-                while True:
-                    if signal.value > 0:
-                        print()
-                        break
-                    time.sleep(1)
-                    
+            print(cert[0], (time.time() - stime)/(i+1))
+        
+        if 0 == int(signal.value):
+            pid = (self.scenario_name +
+                    '-#' + str(self.seqnum))
+            resq.put((pid,'ready'))
+            print('resq.put(%s,\'ready\')'%(pid))
+            while True:
+                if int(signal.value) > 0:
+                    print('Ready to run')
+                    break
+                time.sleep(1)
+         
+        for cert in self.cert_id_list:           
             # 시나리오 시작
-            self.runScenario(cert, resq, signal, prepare_mode=False)
-            
-            if 0 == signal.value:
-                resq.put((self.uid,'ready'))
-                while True:
-                    if signal.value > 0:
-                        break
-                    time.sleep(1)
-            
+            asyncio.run(self.runScenario(cert, 
+                                         resq, 
+                                         signal, 
+                                         prepare_mode=False))    
+        
+        resq.put((self.uid,'endres',result))
+        
                     
 def setShooters():
     """
@@ -754,10 +765,17 @@ def setShooters():
     cert_id_list = get_list_from_csv(gconf['CONF']['cert_id_csv'])
     scen_list = glob(gconf['CONF']['scenario_csvs'])
     
-    for i, scen in enumerate(scen_list):
-        shooter = OmsTester(scen, i)
+    # 보안계정 목록 분배
+    cnt_per_scen = len(cert_id_list)/len(scen_list)
+    dist_cert_ids = divList(cert_id_list, cnt_per_scen)
+    
+    for i, scen_path in enumerate(scen_list):
+        # 슈터 객체 생성
+        shooter = OmsTester(i, scen_path)
         # 시나리오 파일 세팅하기
-        shooter.setConf(gconf, cert_id_list)
+        scenario = get_list_from_csv(scen_path)
+        # 슈터에 설정 내용 세팅
+        shooter.setConf(gconf, dist_cert_ids[i], scenario)
         shooters.append(shooter)
         
     return shooters
@@ -766,7 +784,9 @@ def runShooters(shooters):
     '''
     실제 테스트 실행부
     '''
+    # 결과 전달용 큐 (자식 -> 부모)
     resq = mp.Queue()
+    # 신호 전달용 공유메모리 (부모 -> 자식)
     signal = mp.Value('d', 0)
     
     start_after_prepare = (
@@ -787,19 +807,20 @@ def runShooters(shooters):
                           args=(resq, signal,))
         proc.start()
         procs.append(proc)
-    
     procs_cnt = len(procs)
+    
     # Getting all kinds of data from child processes    
     while True:
         # Getting status from process
-        if resq.empty == False:
+        if resq.empty() == False:
             buf = resq.get(block = False, timeout = 5)
-            
-            if 'ready' == buf[1] and signal.value == 0:
+            if 'ready' == buf[1] and int(signal.value) == 0:
                 procs_ready.append(buf[0])
+                print("DEBUG : ready")
                 if len(procs_ready) == procs_cnt:
                     signal.value = 1
-                    print("%s Processes are start to run"%len(procs_ready))
+                    print("%s Processes are start to run"
+                          %len(procs_ready))
             
             if 'error' == buf[1]:
                 procs_cnt -= 1
@@ -815,22 +836,21 @@ def runShooters(shooters):
                 procs_finish.append(buf[0])
                 result.append((buf[0],buf[2]))
                 if len(procs_finish) == procs_cnt:
-                    signal.value = 2
+                    signal.value = 3
                     break
                 
-            time.sleep(1)
+            time.sleep(2)
 
     for proc in procs:
         proc.join()
         
     return result
 
-def showResult(result):
-    
+def showTotalResult(result):
+    print(result)
     pass
 
 if __name__ == '__main__':
-    # 준비과정에서 저거... NIC에 가상 IP 추가 내용 들어가줘야 됨 
+    
     shooters = setShooters()
     result = runShooters(shooters)
-    showResult(result)
