@@ -8,6 +8,7 @@ import binascii as ba
 import platform as pf
 import time
 import psutil as pu
+from logmacro import *
 from commonlib import *
 
 PERF_TESTER_CONF = 'omsconf/perf_tester.conf'
@@ -420,10 +421,17 @@ class OmsTester:
     '''
     패킷을 쏘고 받는 클래스
     '''
+    # Global status
     gconf = None
+    # 처리할 보안계정 목록
     cert_id_list = None
+    # 진행 시나리오 목록
     scenario = None
+    # 예상 결과값(사전에 결과값을 저장하기 위해 사용)
     exp_data = {}
+    # 슈터의 상태를 누적하기 위한 dictionary
+    # [0] 평균 수행시간, [1] 수행 횟수, [2] 성공 횟수, [3] 실패 횟수
+    cur_status = {}
     
     def __init__(self, seqnum, scen_path):
         self.maker = OmsPktMaker()
@@ -452,12 +460,20 @@ class OmsTester:
                       eval, str, int]
         
         for line in scenario:
+            # 시나리오 컬럼이 필요한 최소 컬럼보다 작을 경우 무시함
             if len(line) < SCENARIO_COLS_MIN:
                 continue
             
+            # 임시 레코드 생성
             temp_col = ['' for i in range(SCENARIO_COLS_MAX)]
+            
             for i, col in enumerate(line):
                 if i == 1:
+                    # 요청 코드별 상태값 초기화
+                    # [0] 평균 수행시간, [1] 수행 횟수, [2] 성공 횟수, [3] 실패 횟수
+                    if col not in self.cur_status:
+                        self.cur_status[col] = [0.0, 0, 0, 0]
+                        
                     temp_col[i] = eval((cols_types[i]%col))
                 else:
                     temp_col[i] = cols_types[i](col)
@@ -655,13 +671,12 @@ class OmsTester:
     def runScenario(self, cert, resq:mp.Queue, signal:mp.Value, prepare_mode = False):
         sock = None
         cur_session = -1
-        prepare_mode = True
         
         # 시나리오 시작
         for step in self.scenario:
             # 보안계정관련 정보 설정
             self.maker.setConf(cert)
-                
+
             # 시나리오에서 추가 옵션 처리 부분
             if len(step) > SCENARIO_COLS_MAX:
                 for line in step[SCENARIO_COLS_MAX:len(step)]:
@@ -679,9 +694,10 @@ class OmsTester:
             if int(step[0]) > cur_session:
                 if None != sock:
                     sock.close()
-                sock = self.connect(cert[4],cert[2], cert[5],)
+                sock = self.connect(cert[4],cert[2], cert[5])
                 cur_session = int(step[0])        
             
+            stime = time.time()
             # 패킷 작성 후 전송
             payload = eval(step[1])()
             sock.send(payload)
@@ -691,17 +707,45 @@ class OmsTester:
             if res[3] == 'Unknown Response Code':
                 print(self.scenario_name, cert[0], step[1], payload)
             
+            # 시간 측정
+            cur_runtime = time.time() - stime
+            
+            # 수행 횟수 증가
+            self.cur_status[step[1]][1] += 1 
+            
             # res값을 검증할지 저장할지 결정
             if False == prepare_mode:
                 result = self.verifyResData(step, res)
                 
                 if False in result[0:3]:
-                    print('%s %s %s %s Error : %s'
+                    # 실패 횟수 증가
+                    self.cur_status[step[1]][3] += 1
+                    
+                    # 에러 로깅
+                    LOG_ERROR('[%s][%s][%s] %s'
                           %(self.uid,
                             step[0],
                             str(step[1]).split(' ')[2].split('.make')[1],
                             str(result[3:6])))
-
+                else:
+                    pre_avg_runtime = self.cur_status[step[1]][0]
+                    hit_times = self.cur_status[step[1]][2]
+                    
+                    # 평균시간 계산 ((기존 평균 * 성공횟수) + 현재 수행시간) / 성공 횟수+1
+                    self.cur_status[step[1]][0] =(
+                        ((pre_avg_runtime * hit_times) + cur_runtime)
+                        /(hit_times +1)
+                    )
+                    
+                    # 성공 횟수 증가
+                    self.cur_status[step[1]][2] += 1
+                
+                # 중간 결과 전달    
+                pid = (self.scenario_name +
+                    '-#' + str(self.seqnum))
+                resq.put((pid,'itmres',self.cur_status))
+                
+                # 지연
                 time.sleep(int(step[4]))
             else:
                 self.saveExpResult(step[3], res[3])
@@ -724,28 +768,28 @@ class OmsTester:
         # 보안계정 목록 순서대로 진행
         for i, cert in enumerate(self.cert_id_list):
             # 시나리오를 한번 실행해서 예상 결과 저장
-            #asyncio.run(self.runScenario(cert, resq, signal, prepare_mode=True))
             self.runScenario(cert, resq, signal, prepare_mode=True)
             print(cert[0], (time.time() - stime)/(i+1))
         
         if 0 == int(signal.value):
             pid = (self.scenario_name +
                     '-#' + str(self.seqnum))
+            
             resq.put((pid,'ready'))
-            print('resq.put(%s,\'ready\')'%(pid))
+            
             while True:
                 if int(signal.value) > 0:
                     print('Ready to run')
                     break
                 time.sleep(1)
-         
+                
         for cert in self.cert_id_list:           
             # 시나리오 시작
-            asyncio.run(self.runScenario(cert, 
-                                         resq, 
-                                         signal, 
-                                         prepare_mode=False))    
-        
+            self.runScenario(cert, 
+                             resq, 
+                             signal, 
+                             prepare_mode=False)
+
         resq.put((self.uid,'endres',result))
         
                     
@@ -772,8 +816,10 @@ def setShooters():
     for i, scen_path in enumerate(scen_list):
         # 슈터 객체 생성
         shooter = OmsTester(i, scen_path)
+        
         # 시나리오 파일 세팅하기
         scenario = get_list_from_csv(scen_path)
+        
         # 슈터에 설정 내용 세팅
         shooter.setConf(gconf, dist_cert_ids[i], scenario)
         shooters.append(shooter)
@@ -795,13 +841,14 @@ def runShooters(shooters):
     if start_after_prepare == False:
         signal.value = 1
     
-    # Create Processes
+    
     procs = []
     procs_ready = []
     cur_procs_stats = {}
     procs_finish = []
     result = []
     
+    # Create Processes
     for shooter in shooters:
         proc = mp.Process(target=shooter.runTest,
                           args=(resq, signal,))
@@ -839,7 +886,7 @@ def runShooters(shooters):
                     signal.value = 3
                     break
                 
-            time.sleep(2)
+            time.sleep(1)
 
     for proc in procs:
         proc.join()

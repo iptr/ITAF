@@ -22,7 +22,7 @@ class Logger:
     # conf 파일을 읽어 로거를 반환
     def getlogger(self):
         # logging.conf 파일을 읽음
-        fp = open(LOG_CONF_PATH,encoding='utf-8')
+        fp = open(LOG_CONF_PATH, encoding='utf-8')
         logging.config.fileConfig(fp)
         # 읽어 드린 logging.conf 파일 중 로거 선택(default - root)
         logger = logging.getLogger()
