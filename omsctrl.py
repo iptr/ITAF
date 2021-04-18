@@ -1,7 +1,7 @@
 import os
 import socket as skt
 import multiprocessing as mp
-import asyncio
+import threading
 from ipaddress import IPv4Network
 from glob import glob
 import binascii as ba
@@ -356,6 +356,13 @@ class OmsPktParser:
         return 'Unknown Response Code'
                 
     def readPayload(self, payload, parse_msg = False):
+        '''
+        @param
+            payload : OMS_DMS에 요청했던 응답값(응답코드 + 메시지)
+        @returns
+            (응답 코드, payload길이, payload 해쉬, 메시지)
+        
+        '''
         read_func_list = {
             usToB(VERSION_RET):self.readMsg,
             usToB(POLICY_RET):self.readPolicyRes,
@@ -410,7 +417,7 @@ class OmsPktParser:
             return (read_func, 
                     len(payload), 
                     get_hash(payload), 
-                    payload)
+                    b'')
         else:
             return (byteToNum(payload[0:2]), 
                     len(payload), 
@@ -421,6 +428,8 @@ class OmsTester:
     '''
     패킷을 쏘고 받는 클래스
     '''
+    # shooter id
+    shooter_id = None
     # Global status
     gconf = None
     # 처리할 보안계정 목록
@@ -438,6 +447,8 @@ class OmsTester:
         self.parser = OmsPktParser()
         self.seqnum = seqnum
         self.scenario_name = os.path.basename(scen_path)
+        self.shooter_id = (self.scenario_name +
+                    '-#' + str(self.seqnum))
         
     def setConf(self, gconf:dict = None, 
                 cert_id_list:list = None, 
@@ -471,13 +482,14 @@ class OmsTester:
                 if i == 1:
                     # 요청 코드별 상태값 초기화
                     # [0] 평균 수행시간, [1] 수행 횟수, [2] 성공 횟수, [3] 실패 횟수
-                    if col not in self.cur_status:
-                        self.cur_status[col] = [0.0, 0, 0, 0]
-                        
-                    temp_col[i] = eval((cols_types[i]%col))
+                    col_text = str(eval((cols_types[i]%col)))
+                    key_name = col_text.split('self.maker.make')[1]
+                    if key_name not in self.cur_status:
+                        self.cur_status[key_name] = [0.0, 0, 0, 0]
+
+                    temp_col[i] = eval(col_text)
                 else:
-                    temp_col[i] = cols_types[i](col)
-                    
+                    temp_col[i] = cols_types[i](col)                    
             self.scenario.append(temp_col)
             
         self.gconf['CONF']['start_after_deploy'] = (
@@ -572,7 +584,8 @@ class OmsTester:
     
     def saveExpResult(self, exp_ret_col, ret_value):
         ret = self.parseCols(exp_ret_col)
-        
+        #ret[0] = 예상결과를 저장할 key 이름
+        #ret[1] = 예상 결과를 저장할 파일경로
         if None != ret[0]:
             self.exp_data[ret[0]] = ret_value
         
@@ -595,21 +608,22 @@ class OmsTester:
         FILE_ERR = 5
         ret_data = [None for i in range(RET_DATA_SIZE)]
 
-        # 기대 값 컬럼 파싱        
+        # 기대 값 컬럼 파싱  
+              
         ret_data[RES_RET] = (int(ret_value[0]) == 
-                             int(exp_ret_row[3]))
+                             int(exp_ret_row[2]))
         
         if ret_data[RES_RET] == False:    
                 ret_data[RES_ERR] = (int(ret_value[0]),
-                                     int(exp_ret_row[3]))
+                                     int(exp_ret_row[2]))
         
-        if ((exp_ret_row[4].find('%') == -1 and 
-            exp_ret_row[4].find('@') == -1) or 
-            exp_ret_row[4] == ''):
+        if ((exp_ret_row[3].find('%') == -1 and 
+            exp_ret_row[3].find('@') == -1) or 
+            exp_ret_row[3] == ''):
         
             return ret_data 
         
-        tmp = self.parseCols(exp_ret_row[4])
+        tmp = self.parseCols(exp_ret_row[3])
         var = tmp[0]
         path = tmp[1]
         
@@ -634,7 +648,6 @@ class OmsTester:
         return ret_data
     
     def recvResponse(self, sock, step):
-        pktparser = self.parser.readPayload
         res = b''
         
         while True:
@@ -664,11 +677,11 @@ class OmsTester:
             return -1
 
         # 파싱된 응답값
-        ret = pktparser(res, parse_msg=False)
+        ret = self.parser.readPayload(res, parse_msg=False)
         return ret
     
-    #async def runScenario(self, cert, resq:mp.Queue, signal:mp.Value, prepare_mode = False):
-    def runScenario(self, cert, resq:mp.Queue, signal:mp.Value, prepare_mode = False):
+    def runScenario(self, cert, resq:mp.Queue, signal:mp.Value,
+                    prepare_mode = False):
         sock = None
         cur_session = -1
         
@@ -680,8 +693,7 @@ class OmsTester:
             # 시나리오에서 추가 옵션 처리 부분
             if len(step) > SCENARIO_COLS_MAX:
                 for line in step[SCENARIO_COLS_MAX:len(step)]:
-                    print(line)
-                    if line.find('=') > -1:    
+                    if line.find('=') > -1:
                         tmp = line.split('=')
                         key = tmp[0].split('.')
                         value = tmp[1].strip()
@@ -699,7 +711,7 @@ class OmsTester:
             
             stime = time.time()
             # 패킷 작성 후 전송
-            payload = eval(step[1])()
+            payload = step[1]()
             sock.send(payload)
             
             # 응답 수신
@@ -710,8 +722,10 @@ class OmsTester:
             # 시간 측정
             cur_runtime = time.time() - stime
             
+            key_name = str(step[1]).split(' ')[2].split('.make')[1]
+                                    
             # 수행 횟수 증가
-            self.cur_status[step[1]][1] += 1 
+            self.cur_status[key_name][1] += 1
             
             # res값을 검증할지 저장할지 결정
             if False == prepare_mode:
@@ -719,36 +733,43 @@ class OmsTester:
                 
                 if False in result[0:3]:
                     # 실패 횟수 증가
-                    self.cur_status[step[1]][3] += 1
-                    
-                    # 에러 로깅
-                    LOG_ERROR('[%s][%s][%s] %s'
-                          %(self.uid,
+                    self.cur_status[key_name][3] += 1
+                    print('[%s][%s][%s] %s'
+                          %(self.shooter_id,
                             step[0],
-                            str(step[1]).split(' ')[2].split('.make')[1],
+                            key_name,
                             str(result[3:6])))
                 else:
-                    pre_avg_runtime = self.cur_status[step[1]][0]
-                    hit_times = self.cur_status[step[1]][2]
+                    pre_avg_runtime = self.cur_status[key_name][0]
+                    hit_times = self.cur_status[key_name][2]
                     
                     # 평균시간 계산 ((기존 평균 * 성공횟수) + 현재 수행시간) / 성공 횟수+1
-                    self.cur_status[step[1]][0] =(
+                    self.cur_status[key_name][0] =(
                         ((pre_avg_runtime * hit_times) + cur_runtime)
                         /(hit_times +1)
                     )
                     
                     # 성공 횟수 증가
-                    self.cur_status[step[1]][2] += 1
+                    self.cur_status[key_name][2] += 1
                 
-                # 중간 결과 전달    
-                pid = (self.scenario_name +
-                    '-#' + str(self.seqnum))
-                resq.put((pid,'itmres',self.cur_status))
+                # 중간 결과 전달
+                resq.put((self.shooter_id,'itmres',self.cur_status))
                 
+                if signal == 2:
+                    while True:
+                        time.sleep(1)
+                if signal == 3:
+                    return -3
                 # 지연
-                time.sleep(int(step[4]))
+                try:
+                    time.sleep(int(step[4]))
+                except:
+                    pass
             else:
                 self.saveExpResult(step[3], res[3])
+        
+        # 최종결과 리턴
+        resq.put((self.shooter_id, 'endres', result))
         
     def runTest(self, resq:mp.Queue, signal:mp.Value):
         '''
@@ -764,18 +785,16 @@ class OmsTester:
                 2 : 테스트 일시 정지
                 3 : 테스트 강제 종료
         '''
-        stime = time.time()
+    
         # 보안계정 목록 순서대로 진행
         for i, cert in enumerate(self.cert_id_list):
             # 시나리오를 한번 실행해서 예상 결과 저장
-            self.runScenario(cert, resq, signal, prepare_mode=True)
-            print(cert[0], (time.time() - stime)/(i+1))
-        
-        if 0 == int(signal.value):
-            pid = (self.scenario_name +
-                    '-#' + str(self.seqnum))
+            thread = threading.Thread(target = self.runScenario,
+                                      args = (cert, resq, signal, True,))
+            thread.start()
             
-            resq.put((pid,'ready'))
+        if 0 == int(signal.value):
+            resq.put((self.shooter_id, 'ready'))
             
             while True:
                 if int(signal.value) > 0:
@@ -788,10 +807,7 @@ class OmsTester:
             self.runScenario(cert, 
                              resq, 
                              signal, 
-                             prepare_mode=False)
-
-        resq.put((self.uid,'endres',result))
-        
+                             prepare_mode=False)        
                     
 def setShooters():
     """
@@ -810,7 +826,7 @@ def setShooters():
     scen_list = glob(gconf['CONF']['scenario_csvs'])
     
     # 보안계정 목록 분배
-    cnt_per_scen = len(cert_id_list)/len(scen_list)
+    cnt_per_scen = int(len(cert_id_list)/len(scen_list))
     dist_cert_ids = divList(cert_id_list, cnt_per_scen)
     
     for i, scen_path in enumerate(scen_list):
@@ -841,7 +857,6 @@ def runShooters(shooters):
     if start_after_prepare == False:
         signal.value = 1
     
-    
     procs = []
     procs_ready = []
     cur_procs_stats = {}
@@ -863,7 +878,7 @@ def runShooters(shooters):
             buf = resq.get(block = False, timeout = 5)
             if 'ready' == buf[1] and int(signal.value) == 0:
                 procs_ready.append(buf[0])
-                print("DEBUG : ready")
+                
                 if len(procs_ready) == procs_cnt:
                     signal.value = 1
                     print("%s Processes are start to run"
