@@ -35,12 +35,6 @@ Required python libraries
   pip3 install pymysql
 
 
-You should then add variables for ``CPPFLAGS`` and ``LDFLAGS`` to your shell environment. This allows ``pythonz`` to find the OpenSSL installed by Homebrew.
-
-::
-
-  export CPPFLAGS="-I/usr/local/opt/openssl/include"
-  export LDFLAGS="-L/usr/local/opt/openssl/lib"
 
 Usage
 -----
