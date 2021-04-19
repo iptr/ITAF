@@ -12,6 +12,8 @@ import configparser as cp
 from struct import pack
 from struct import unpack
 from ipaddress import IPv4Address
+from rich.console import Console
+from rich.table import Table
 from dbctrl import *
 
 CONF_PATH = 'conf/taif.conf'
@@ -337,7 +339,7 @@ def print_matrix(contents:list, header=None, padding=1):
     sizelist = [0 for _ in contents[0]]
     
     if header == list:
-        contents.insert(0,header)
+        contents.insert(0, header)
 
     # 각 컬럼의 최대 크기 측정
     for row in contents:
@@ -412,7 +414,22 @@ def divList(orglist, n):
             for i in range(
                 int((len(orglist)+n-1)/n))]
     return ret
+
+def printTable(table_list:list, header:list, showheader=True):
+    console = Console()
+
+    table = Table(show_header=True, header_style="bold")
+    for col in header:
+        table.add_column(col, justify="center")
     
+    for row in table_list:
+        tmp = []
+        for col in row :
+            tmp.append(str(col))
+
+        table.add_row(*tmp)
+
+    console.print(table)
 
 if __name__ == '__main__':
     pass

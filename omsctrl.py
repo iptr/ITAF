@@ -8,7 +8,6 @@ import binascii as ba
 import platform as pf
 import time
 import psutil as pu
-from logmacro import *
 from commonlib import *
 
 PERF_TESTER_CONF = 'omsconf/perf_tester.conf'
@@ -360,7 +359,8 @@ class OmsPktParser:
         @param
             payload : OMS_DMS에 요청했던 응답값(응답코드 + 메시지)
         @returns
-            (응답 코드, payload길이, payload 해쉬, 메시지)
+            (응답 코드, payload길이, payload 해쉬, 
+            메시지 또는 메시지가 없을 경우 Payload 원문)
         
         '''
         read_func_list = {
@@ -417,7 +417,7 @@ class OmsPktParser:
             return (read_func, 
                     len(payload), 
                     get_hash(payload), 
-                    b'')
+                    payload)
         else:
             return (byteToNum(payload[0:2]), 
                     len(payload), 
@@ -447,8 +447,8 @@ class OmsTester:
         self.parser = OmsPktParser()
         self.seqnum = seqnum
         self.scenario_name = os.path.basename(scen_path)
-        self.shooter_id = (self.scenario_name +
-                    '-#' + str(self.seqnum))
+        self.shooter_id = (self.scenario_name.split('.')[0] 
+                           + ' - Proc #' + str(self.seqnum))
         
     def setConf(self, gconf:dict = None, 
                 cert_id_list:list = None, 
@@ -543,7 +543,10 @@ class OmsTester:
         nic_name = (nic+'\0').encode('utf8')
         sock.setsockopt(skt.SOL_SOCKET, skt.SO_BINDTODEVICE, nic_name)
         sock.settimeout(TIME_OUT_SEC)
-        sock.connect((dst_ip, port))
+        try:
+            sock.connect((dst_ip, port))
+        except Exception as e:
+            print(e, src_ip, nic, dst_ip, port)
         
         return sock
     
@@ -608,8 +611,7 @@ class OmsTester:
         FILE_ERR = 5
         ret_data = [None for i in range(RET_DATA_SIZE)]
 
-        # 기대 값 컬럼 파싱  
-              
+        # 기대 값 컬럼 파싱
         ret_data[RES_RET] = (int(ret_value[0]) == 
                              int(exp_ret_row[2]))
         
@@ -648,6 +650,14 @@ class OmsTester:
         return ret_data
     
     def recvResponse(self, sock, step):
+        '''
+        요청에 대한 응답값과 메시지를 받는 함수
+        @params
+            sock : 응답값을 받을 소켓
+            step : 시나리오의 스탭 레코드
+        @returns
+            (응답 코드, payload길이, payload 해쉬, 메시지)
+        '''
         res = b''
         
         while True:
@@ -706,7 +716,7 @@ class OmsTester:
             if int(step[0]) > cur_session:
                 if None != sock:
                     sock.close()
-                sock = self.connect(cert[4],cert[2], cert[5])
+                sock = self.connect(cert[4], cert[2], cert[5])
                 cur_session = int(step[0])        
             
             stime = time.time()
@@ -722,14 +732,13 @@ class OmsTester:
             # 시간 측정
             cur_runtime = time.time() - stime
             
-            key_name = str(step[1]).split(' ')[2].split('.make')[1]
-                                    
-            # 수행 횟수 증가
-            self.cur_status[key_name][1] += 1
-            
             # res값을 검증할지 저장할지 결정
             if False == prepare_mode:
                 result = self.verifyResData(step, res)
+                key_name = str(step[1]).split(' ')[2].split('.make')[1]
+
+                # 수행 횟수 증가
+                self.cur_status[key_name][1] += 1
                 
                 if False in result[0:3]:
                     # 실패 횟수 증가
@@ -738,16 +747,19 @@ class OmsTester:
                           %(self.shooter_id,
                             step[0],
                             key_name,
-                            str(result[3:6])))
+                            str(result[:])))
                 else:
                     pre_avg_runtime = self.cur_status[key_name][0]
                     hit_times = self.cur_status[key_name][2]
                     
+                    if (pre_avg_runtime == 0 or
+                        hit_times == 0):
+                        self.cur_status[key_name][0] = cur_runtime
+                    else:
                     # 평균시간 계산 ((기존 평균 * 성공횟수) + 현재 수행시간) / 성공 횟수+1
-                    self.cur_status[key_name][0] =(
+                        self.cur_status[key_name][0] = (
                         ((pre_avg_runtime * hit_times) + cur_runtime)
-                        /(hit_times +1)
-                    )
+                        /(hit_times + 1))
                     
                     # 성공 횟수 증가
                     self.cur_status[key_name][2] += 1
@@ -769,7 +781,7 @@ class OmsTester:
                 self.saveExpResult(step[3], res[3])
         
         # 최종결과 리턴
-        resq.put((self.shooter_id, 'endres', result))
+        resq.put((self.shooter_id, 'endres', self.cur_status))
         
     def runTest(self, resq:mp.Queue, signal:mp.Value):
         '''
@@ -792,23 +804,24 @@ class OmsTester:
             thread = threading.Thread(target = self.runScenario,
                                       args = (cert, resq, signal, True,))
             thread.start()
+            #self.runScenario(cert, resq, signal, True)
             
         if 0 == int(signal.value):
             resq.put((self.shooter_id, 'ready'))
             
             while True:
                 if int(signal.value) > 0:
-                    print('Ready to run')
                     break
                 time.sleep(1)
                 
-        for cert in self.cert_id_list:           
-            # 시나리오 시작
-            self.runScenario(cert, 
-                             resq, 
-                             signal, 
-                             prepare_mode=False)        
-                    
+        for _ in range(int(self.gconf['CONF']['repeat_count'])):
+            for cert in self.cert_id_list:           
+                # 시나리오 시작
+                thread = threading.Thread(target = self.runScenario,
+                                          args = (cert, resq, signal, False,))
+                thread.start()
+                #self.runScenario(cert, resq, signal, True)
+                        
 def setShooters():
     """
     실제 테스트를 수행하는 주체 프로세스를 생성함
@@ -824,22 +837,27 @@ def setShooters():
     gconf = get_file_conf(PERF_TESTER_CONF)
     cert_id_list = get_list_from_csv(gconf['CONF']['cert_id_csv'])
     scen_list = glob(gconf['CONF']['scenario_csvs'])
+    scen_list.sort()
+    proc_count = int(gconf['CONF']['proc_count'])
     
     # 보안계정 목록 분배
-    cnt_per_scen = int(len(cert_id_list)/len(scen_list))
+    cnt_per_scen = int(len(cert_id_list) / (len(scen_list) * proc_count))
     dist_cert_ids = divList(cert_id_list, cnt_per_scen)
     
     for i, scen_path in enumerate(scen_list):
-        # 슈터 객체 생성
-        shooter = OmsTester(i, scen_path)
+        for rep in range(proc_count):
+            shooter_idx = (i * proc_count) + rep
+            
+            # 슈터 객체 생성
+            shooter = OmsTester(shooter_idx, scen_path)
         
-        # 시나리오 파일 세팅하기
-        scenario = get_list_from_csv(scen_path)
-        
-        # 슈터에 설정 내용 세팅
-        shooter.setConf(gconf, dist_cert_ids[i], scenario)
-        shooters.append(shooter)
-        
+            # 시나리오 파일 세팅하기
+            scenario = get_list_from_csv(scen_path)
+            
+            # 슈터에 설정 내용 세팅
+            shooter.setConf(gconf, dist_cert_ids[shooter_idx], scenario)
+            shooters.append(shooter)
+            
     return shooters
 
 def runShooters(shooters):
@@ -871,7 +889,7 @@ def runShooters(shooters):
         procs.append(proc)
     procs_cnt = len(procs)
     
-    # Getting all kinds of data from child processes    
+    # Getting all kinds of data from child processes  
     while True:
         # Getting status from process
         if resq.empty() == False:
@@ -890,23 +908,46 @@ def runShooters(shooters):
             
             if 'itmres' == buf[1]:
                 cur_procs_stats[buf[0]] = buf[2]
-                print('\n\n[Current Processes status]')
-                for key in cur_procs_stats:
-                    print(cur_procs_stats[key])
-            
+                printStatus(cur_procs_stats)
+                        
             if 'endres' == buf[1]:
                 procs_finish.append(buf[0])
-                result.append((buf[0],buf[2]))
+                #result.append((buf[0],buf[2]))
                 if len(procs_finish) == procs_cnt:
                     signal.value = 3
+                    printStatus(cur_procs_stats)
                     break
-                
-            time.sleep(1)
 
+            time.sleep(1)
+            
     for proc in procs:
         proc.join()
         
     return result
+
+def printStatus(procs_stats):
+    tables = []
+    result_header = ['Request Code', 'Average RunTime', 'Run Count', 
+                     'Success Count', 'Failure Count']
+    for key in procs_stats:
+        table = []
+        for code in procs_stats[key]:
+            row = []
+            row.append(code)
+            row.append(procs_stats[key][code][0])
+            row.append(procs_stats[key][code][1])
+            row.append(procs_stats[key][code][2])
+            row.append(procs_stats[key][code][3])
+            table.append(row)
+        tables.append((key, table))
+
+    os.system('clear')
+
+    print('[Current Processes status]')
+
+    for table in tables:
+        print('\n[ %s ]'%table[0])
+        printTable(table[1], result_header)
 
 def showTotalResult(result):
     print(result)
