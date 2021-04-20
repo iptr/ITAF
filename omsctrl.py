@@ -2,6 +2,7 @@ import os
 import socket as skt
 import multiprocessing as mp
 import threading
+import asyncio
 from ipaddress import IPv4Network
 from glob import glob
 import binascii as ba
@@ -438,10 +439,8 @@ class OmsTester:
     scenario = None
     # 예상 결과값(사전에 결과값을 저장하기 위해 사용)
     exp_data = {}
-    # 슈터의 상태를 누적하기 위한 dictionary
-    # [0] 평균 수행시간, [1] 수행 횟수, [2] 성공 횟수, [3] 실패 횟수
-    cur_status = {}
-    
+
+
     def __init__(self, seqnum, scen_path):
         self.maker = OmsPktMaker()
         self.parser = OmsPktParser()
@@ -481,12 +480,8 @@ class OmsTester:
             for i, col in enumerate(line):
                 if i == 1:
                     # 요청 코드별 상태값 초기화
-                    # [0] 평균 수행시간, [1] 수행 횟수, [2] 성공 횟수, [3] 실패 횟수
+                    # [0] 수행시간, [1] 수행 횟수, [2] 성공 횟수, [3] 실패 횟수
                     col_text = str(eval((cols_types[i]%col)))
-                    key_name = col_text.split('self.maker.make')[1]
-                    if key_name not in self.cur_status:
-                        self.cur_status[key_name] = [0.0, 0, 0, 0]
-
                     temp_col[i] = eval(col_text)
                 else:
                     temp_col[i] = cols_types[i](col)                    
@@ -566,23 +561,24 @@ class OmsTester:
         if pos_var > -1 and pos_path > -1:
             # 경로가 먼저인 경우
             if pos_var > pos_path:
-                col.strip('@ ')
+                col = col.strip(' @')
                 temp = col.split('%')
                 path = temp[0].strip()
                 var = temp[1].strip()
             # 변수가 먼저인 경우
             else:
-                col.strip('% ')
+                col = col.strip(' %')
                 temp = col.split('@')
                 var = temp[0].strip()
                 path = temp[1].strip()
+
         elif pos_var > -1:
             var = col.strip('% ')
         elif pos_path > -1:
             path = col.strip('@ ')
         else:
             pass
-        
+                
         return (var, path)
     
     def saveExpResult(self, exp_ret_col, ret_value):
@@ -630,12 +626,13 @@ class OmsTester:
         path = tmp[1]
         
         if None != var:
+
             ret_data[HASH_RET] = (get_hash(self.exp_data[var])
                                 == ret_value[2])
             if ret_data[HASH_RET] == False:
                 ret_data[HASH_ERR] = (get_hash(self.exp_data[var]),
-                                      ret_value[2])
-                
+                                    ret_value[2])
+               
         if None != path:
             # 검증 파일 읽기
             f = open(path, 'rb')
@@ -691,99 +688,7 @@ class OmsTester:
         return ret
     
     def runScenario(self, cert, resq:mp.Queue, signal:mp.Value,
-                    prepare_mode = False):
-        sock = None
-        cur_session = -1
-        
-        # 시나리오 시작
-        for step in self.scenario:
-            # 보안계정관련 정보 설정
-            self.maker.setConf(cert)
-
-            # 시나리오에서 추가 옵션 처리 부분
-            if len(step) > SCENARIO_COLS_MAX:
-                for line in step[SCENARIO_COLS_MAX:len(step)]:
-                    if line.find('=') > -1:
-                        tmp = line.split('=')
-                        key = tmp[0].split('.')
-                        value = tmp[1].strip()
-                        grp = key[0].strip()
-                        name = key[1].lower().strip()
-                        self.gconf[grp][name] = value
-                self.setConf()
-            
-            # 현재 세션을 유지할지 확인
-            if int(step[0]) > cur_session:
-                if None != sock:
-                    sock.close()
-                sock = self.connect(cert[4], cert[2], cert[5])
-                cur_session = int(step[0])        
-            
-            stime = time.time()
-            # 패킷 작성 후 전송
-            payload = step[1]()
-            sock.send(payload)
-            
-            # 응답 수신
-            res = self.recvResponse(sock, step)
-            if res[3] == 'Unknown Response Code':
-                print(self.scenario_name, cert[0], step[1], payload)
-            
-            # 시간 측정
-            cur_runtime = time.time() - stime
-            
-            # res값을 검증할지 저장할지 결정
-            if False == prepare_mode:
-                result = self.verifyResData(step, res)
-                key_name = str(step[1]).split(' ')[2].split('.make')[1]
-
-                # 수행 횟수 증가
-                self.cur_status[key_name][1] += 1
-                
-                if False in result[0:3]:
-                    # 실패 횟수 증가
-                    self.cur_status[key_name][3] += 1
-                    print('[%s][%s][%s] %s'
-                          %(self.shooter_id,
-                            step[0],
-                            key_name,
-                            str(result[:])))
-                else:
-                    pre_avg_runtime = self.cur_status[key_name][0]
-                    hit_times = self.cur_status[key_name][2]
-                    
-                    if (pre_avg_runtime == 0 or
-                        hit_times == 0):
-                        self.cur_status[key_name][0] = cur_runtime
-                    else:
-                    # 평균시간 계산 ((기존 평균 * 성공횟수) + 현재 수행시간) / 성공 횟수+1
-                        self.cur_status[key_name][0] = (
-                        ((pre_avg_runtime * hit_times) + cur_runtime)
-                        /(hit_times + 1))
-                    
-                    # 성공 횟수 증가
-                    self.cur_status[key_name][2] += 1
-                
-                # 중간 결과 전달
-                resq.put((self.shooter_id,'itmres',self.cur_status))
-                
-                if signal == 2:
-                    while True:
-                        time.sleep(1)
-                if signal == 3:
-                    return -3
-                # 지연
-                try:
-                    time.sleep(int(step[4]))
-                except:
-                    pass
-            else:
-                self.saveExpResult(step[3], res[3])
-        
-        # 최종결과 리턴
-        resq.put((self.shooter_id, 'endres', self.cur_status))
-        
-    def runTest(self, resq:mp.Queue, signal:mp.Value):
+                    prepare_mode = True):
         '''
         @param
             resq : 중간 및 최종결과를 부모 프로세스에 전달하기 위한 큐
@@ -797,30 +702,126 @@ class OmsTester:
                 2 : 테스트 일시 정지
                 3 : 테스트 강제 종료
         '''
-    
+        for _ in range(int(self.gconf['CONF']['repeat_count']) + 1):
+            sock = None
+            cur_session = -1
+            lap_result = {'time':0.0, 
+                'runc':0,
+                'succ':0,
+                'fail':0,
+                'fstep':''}
+            # 시나리오 시작
+            for step in self.scenario:
+                # 보안계정관련 정보 설정
+                self.maker.setConf(cert)
+
+                # 시나리오에서 추가 옵션 처리 부분
+                if len(step) > SCENARIO_COLS_MAX:
+                    for line in step[SCENARIO_COLS_MAX:len(step)]:
+                        if line.find('=') > -1:
+                            tmp = line.split('=')
+                            key = tmp[0].split('.')
+                            value = tmp[1].strip()
+                            grp = key[0].strip()
+                            name = key[1].lower().strip()
+                            self.gconf[grp][name] = value
+                    self.setConf()
+                
+                # 현재 세션을 유지할지 확인
+                if int(step[0]) > cur_session:
+                    if None != sock:
+                        sock.close()
+                    sock = self.connect(cert[4], cert[2], cert[5])
+                    cur_session = int(step[0])        
+                
+                stime = time.time()
+                # 패킷 작성 후 전송
+                payload = step[1]()
+                sock.send(payload)
+                
+                # 응답 수신
+                res = self.recvResponse(sock, step)
+                if res[3] == 'Unknown Response Code':
+                    print(self.scenario_name, cert[0], step[1], payload)
+                
+                # 시간 측정
+                lap_result['time'] += (time.time() - stime)
+                
+                # res값을 검증할지 저장할지 결정
+                if False == prepare_mode:
+                    result = self.verifyResData(step, res)
+                    key_name = str(step[1]).split(' ')[2].split('.make')[1]                   
+                    
+                    if False in result[0:3]:
+                        # 실패 횟수 증가
+                        lap_result['fail'] = 1
+                        lap_result['fstep'] = key_name
+                      
+                    else:
+                        #pre_avg_runtime = self.cur_status[key_name][0]
+                        #hit_times = self.cur_status[key_name][2]
+                        
+                        #if (pre_avg_runtime == 0 or
+                        #    hit_times == 0):
+                        #    self.cur_status[key_name][0] = cur_runtime
+                        #else:
+                        # 평균시간 계산 ((기존 평균 * 성공횟수) + 현재 수행시간) / 성공 횟수+1
+                        #    self.cur_status[key_name][0] = (
+                        #    ((pre_avg_runtime * hit_times) + cur_runtime)
+                        #    /(hit_times + 1))
+                        
+                        # 성공 횟수 증가
+                        lap_result['succ'] = 1
+                    
+                    if signal == 2:
+                        while True:
+                            time.sleep(1)
+                    if signal == 3:
+                        return -3
+                    # 지연
+                    try:
+                        time.sleep(int(step[4]))
+                    except:
+                        pass
+                else:
+                    self.saveExpResult(step[3], res[3])
+
+            if prepare_mode == False:
+                # 1lap 수행 횟수 누적
+                lap_result['runc'] = 1
+                
+                # 1lap 중간 결과 전달
+                resq.put((self.shooter_id,'itmres',lap_result))
+                        
+            prepare_mode = False
+            if 0 == int(signal.value):
+                resq.put((self.shooter_id, 'ready'))
+                while True:
+                    if int(signal.value) > 0:
+                        break
+                    time.sleep(1)
+
+        # 최종결과 리턴
+        resq.put((self.shooter_id, 'endres'))
+        
+    def runTest(self, resq:mp.Queue, signal:mp.Value):
+        threads = []
         # 보안계정 목록 순서대로 진행
-        for i, cert in enumerate(self.cert_id_list):
+        for cert in self.cert_id_list:
             # 시나리오를 한번 실행해서 예상 결과 저장
             thread = threading.Thread(target = self.runScenario,
                                       args = (cert, resq, signal, True,))
+            threads.append(thread)
             thread.start()
-            #self.runScenario(cert, resq, signal, True)
-            
-        if 0 == int(signal.value):
-            resq.put((self.shooter_id, 'ready'))
-            
-            while True:
-                if int(signal.value) > 0:
-                    break
-                time.sleep(1)
-                
-        for _ in range(int(self.gconf['CONF']['repeat_count'])):
-            for cert in self.cert_id_list:           
-                # 시나리오 시작
-                thread = threading.Thread(target = self.runScenario,
-                                          args = (cert, resq, signal, False,))
-                thread.start()
-                #self.runScenario(cert, resq, signal, True)
+        
+        while True:
+            if signal.value == 3 :
+                break
+            time.sleep(2)
+        
+        for thread in threads:
+            thread.join()
+    
                         
 def setShooters():
     """
@@ -839,28 +840,45 @@ def setShooters():
     scen_list = glob(gconf['CONF']['scenario_csvs'])
     scen_list.sort()
     proc_count = int(gconf['CONF']['proc_count'])
+    thread_count = len(cert_id_list)
     
     # 보안계정 목록 분배
     cnt_per_scen = int(len(cert_id_list) / (len(scen_list) * proc_count))
-    dist_cert_ids = divList(cert_id_list, cnt_per_scen)
+    dist_cert_ids = divList(cert_id_list, cnt_per_scen)    
     
-    for i, scen_path in enumerate(scen_list):
+    for i, cert in enumerate(dist_cert_ids):
         for rep in range(proc_count):
+            #슈터 식별자
             shooter_idx = (i * proc_count) + rep
-            
-            # 슈터 객체 생성
-            shooter = OmsTester(shooter_idx, scen_path)
         
+            # 슈터 객체 생성(슈터 순서에 따라 시나리오 선택)
+            scen_path = scen_list[shooter_idx%len(scen_list)]
+            shooter = OmsTester(shooter_idx, scen_path)
+            
             # 시나리오 파일 세팅하기
             scenario = get_list_from_csv(scen_path)
-            
-            # 슈터에 설정 내용 세팅
-            shooter.setConf(gconf, dist_cert_ids[shooter_idx], scenario)
-            shooters.append(shooter)
-            
-    return shooters
 
-def runShooters(shooters):
+            # 슈터에 설정 내용 세팅
+            shooter.setConf(gconf, cert, scenario)
+            shooters.append(shooter)
+     
+    #for i, scen_path in enumerate(scen_list):
+    #    for rep in range(proc_count):
+    #        shooter_idx = (i * proc_count) + rep
+    #        
+    #        # 슈터 객체 생성
+    #        shooter = OmsTester(shooter_idx, scen_path)
+    #    
+    #        # 시나리오 파일 세팅하기
+    #        scenario = get_list_from_csv(scen_path)
+    #        
+    #        # 슈터에 설정 내용 세팅
+    #        shooter.setConf(gconf, dist_cert_ids[shooter_idx], scenario)
+    #        shooters.append(shooter)
+            
+    return shooters, thread_count
+
+def runShooters(shooters, thread_count):
     '''
     실제 테스트 실행부
     '''
@@ -877,16 +895,23 @@ def runShooters(shooters):
     
     procs = []
     procs_ready = []
-    cur_procs_stats = {}
+    # 키 : shooter_id [0]수행시간, [1]스탭 횟수, [2] 성공 횟수, [3] 실패 횟수
+    all_status = {}
     procs_finish = []
-    result = []
     
     # Create Processes
     for shooter in shooters:
+        all_status[shooter.shooter_id] = {'shooter_id': shooter.shooter_id,
+                                          'runtime':[],
+                                          'runcount':0,
+                                          'success':0,
+                                          'failcount':0,
+                                          'failstep':[]}
         proc = mp.Process(target=shooter.runTest,
                           args=(resq, signal,))
         proc.start()
         procs.append(proc)
+    
     procs_cnt = len(procs)
     
     # Getting all kinds of data from child processes  
@@ -897,25 +922,34 @@ def runShooters(shooters):
             if 'ready' == buf[1] and int(signal.value) == 0:
                 procs_ready.append(buf[0])
                 
-                if len(procs_ready) == procs_cnt:
+                if len(procs_ready) == thread_count:
                     signal.value = 1
                     print("%s Processes are start to run"
-                          %len(procs_ready))
+                           %thread_count)
             
             if 'error' == buf[1]:
                 procs_cnt -= 1
                 print('Error occured on #%s Process')
             
             if 'itmres' == buf[1]:
-                cur_procs_stats[buf[0]] = buf[2]
-                printStatus(cur_procs_stats)
+                try:
+                    all_status[buf[0]]['runtime'].append(buf[2]['time'])
+                except:
+                    print(all_status.keys())
+                    print(buf[0])
+                    print(buf[2].keys())
+                all_status[buf[0]]['runcount'] += buf[2]['runc']
+                all_status[buf[0]]['success'] += buf[2]['succ']
+                all_status[buf[0]]['failcount'] += buf[2]['fail']
+                all_status[buf[0]]['failstep'] += buf[2]['fstep']
+                printCurStatus(all_status)
                         
             if 'endres' == buf[1]:
                 procs_finish.append(buf[0])
                 #result.append((buf[0],buf[2]))
-                if len(procs_finish) == procs_cnt:
+                if len(procs_finish) == thread_count:
                     signal.value = 3
-                    printStatus(cur_procs_stats)
+                    printCurStatus(all_status)
                     break
 
             time.sleep(1)
@@ -923,37 +957,33 @@ def runShooters(shooters):
     for proc in procs:
         proc.join()
         
-    return result
 
-def printStatus(procs_stats):
-    tables = []
-    result_header = ['Request Code', 'Average RunTime', 'Run Count', 
-                     'Success Count', 'Failure Count']
-    for key in procs_stats:
-        table = []
-        for code in procs_stats[key]:
-            row = []
-            row.append(code)
-            row.append(procs_stats[key][code][0])
-            row.append(procs_stats[key][code][1])
-            row.append(procs_stats[key][code][2])
-            row.append(procs_stats[key][code][3])
-            table.append(row)
-        tables.append((key, table))
+def printCurStatus(all_status):
+    table = []
+    result_header = ['Shooter ID', 'Average Time', 'Run Count', 
+                     'Success', 'Failure', 'Fail Step']
+    
+    for sid in all_status:
+        row = []
+        row.append(sid)
+        try:
+            avg_time = (sum(all_status[sid]['runtime'],0) 
+                        / len(all_status[sid]['runtime']))
+        except:
+            avg_time = 0
+        row.append(round(avg_time,3))
+        row.append(all_status[sid]['runcount'])
+        row.append(all_status[sid]['success'])
+        row.append(all_status[sid]['failcount'])
+        row.append(list(set(all_status[sid]['failstep'])))
+        table.append(row)
 
     os.system('clear')
 
-    print('[Current Processes status]')
-
-    for table in tables:
-        print('\n[ %s ]'%table[0])
-        printTable(table[1], result_header)
-
-def showTotalResult(result):
-    print(result)
-    pass
+    print('[Current Processes status]')  
+    printTable(table, result_header)
 
 if __name__ == '__main__':
     
-    shooters = setShooters()
-    result = runShooters(shooters)
+    shooters, thread_count = setShooters()
+    runShooters(shooters, thread_count)
