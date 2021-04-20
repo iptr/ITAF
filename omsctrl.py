@@ -846,8 +846,6 @@ class OmsTester:
        
        for thread in threads:
            thread.join()
-       for cert in self.cert_id_list:
-           self.runScenario(cert, resq, signal, True)
                         
 def setShooters():
     """
