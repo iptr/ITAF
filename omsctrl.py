@@ -14,7 +14,6 @@ from commonlib import *
 PERF_TESTER_CONF = 'omsconf/perf_tester.conf'
 OMS_DMS_PORT = 50011
 MAX_RECV_SIZE = 4192
-TIME_OUT_SEC = 30
 SCENARIO_COLS_MIN = 3
 SCENARIO_COLS_MAX = 5
 
@@ -520,6 +519,7 @@ class OmsTester:
         @return
             socket
         '''
+        TIME_OUT_SEC = 30000
         AFTER_IDLE_SEC = 100
         INTERVAL_SEC = 100
         MAX_FAILS = 2
@@ -542,6 +542,7 @@ class OmsTester:
             sock.connect((dst_ip, port))
         except Exception as e:
             print(e, src_ip, nic, dst_ip, port)
+            raise e
         
         return sock
     
@@ -731,7 +732,12 @@ class OmsTester:
                 if int(step[0]) > cur_session:
                     if None != sock:
                         sock.close()
-                    sock = self.connect(cert[4], cert[2], cert[5])
+                    for _ in range(3):
+                        try:
+                            sock = self.connect(cert[4], cert[2], cert[5])
+                        except Exception as e:
+                            pass
+                        
                     cur_session = int(step[0])        
                 
                 stime = time.time()
@@ -758,17 +764,6 @@ class OmsTester:
                         lap_result['fstep'] = key_name
                       
                     else:
-                        #pre_avg_runtime = self.cur_status[key_name][0]
-                        #hit_times = self.cur_status[key_name][2]
-                        
-                        #if (pre_avg_runtime == 0 or
-                        #    hit_times == 0):
-                        #    self.cur_status[key_name][0] = cur_runtime
-                        #else:
-                        # 평균시간 계산 ((기존 평균 * 성공횟수) + 현재 수행시간) / 성공 횟수+1
-                        #    self.cur_status[key_name][0] = (
-                        #    ((pre_avg_runtime * hit_times) + cur_runtime)
-                        #    /(hit_times + 1))
                         
                         # 성공 횟수 증가
                         lap_result['succ'] = 1
@@ -861,20 +856,6 @@ def setShooters():
             # 슈터에 설정 내용 세팅
             shooter.setConf(gconf, cert, scenario)
             shooters.append(shooter)
-     
-    #for i, scen_path in enumerate(scen_list):
-    #    for rep in range(proc_count):
-    #        shooter_idx = (i * proc_count) + rep
-    #        
-    #        # 슈터 객체 생성
-    #        shooter = OmsTester(shooter_idx, scen_path)
-    #    
-    #        # 시나리오 파일 세팅하기
-    #        scenario = get_list_from_csv(scen_path)
-    #        
-    #        # 슈터에 설정 내용 세팅
-    #        shooter.setConf(gconf, dist_cert_ids[shooter_idx], scenario)
-    #        shooters.append(shooter)
             
     return shooters, thread_count
 
