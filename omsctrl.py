@@ -486,7 +486,7 @@ class OmsTester:
                     temp_col[i] = cols_types[i](col)                    
             self.scenario.append(temp_col)
             
-        self.gconf['CONF']['start_after_deploy'] = (
+        self.gconf['CONF']['start_after_prepare'] = (
             getBoolStr(self.gconf['CONF']['start_after_prepare']))
         
     def setVIP(self, nic_name, vip):
@@ -710,15 +710,25 @@ class OmsTester:
                 2 : 테스트 일시 정지
                 3 : 테스트 강제 종료
         '''
-            
-        for _ in range(int(self.gconf['CONF']['repeat_count']) + 1):
+        repeat_count = int(self.gconf['CONF']['repeat_count'])
+        use_verify = self.gconf['CONF']['use_verify'].lower() == 'true'
+        if use_verify:
+            repeat_count += 1
+            prepare_mode = True
+            print('\nStart to prepare Test\n')
+        else:
+            prepare_mode = False
+        
+        for _ in range(repeat_count):
             sock = None
             cur_session = -1
             lap_result = {'time':0.0, 
                 'runc':0,
                 'succ':0,
                 'fail':0,
-                'fstep':''}
+                'fstep':'',
+                'step':{}
+                }
             
             # 시나리오 시작
             for step in self.scenario:
@@ -786,30 +796,35 @@ class OmsTester:
                     print(self.scenario_name, cert[0], step[1], payload)
                 
                 # res값을 검증할지 저장할지 결정
-                if False == prepare_mode:
-                    result = self.verifyResData(step, res)
-                    
-                    if False in result[0:3]:
-                        # 실패 횟수 증가
-                        lap_result['fail'] = 1
-                        lap_result['fstep'] = key_name
-                      
+                if use_verify:
+                    if False == prepare_mode:
+                        result = self.verifyResData(step, res)
+                        
+                        if False in result[0:3]:
+                            # 실패 횟수 증가
+                            lap_result['fail'] = 1
+                            lap_result['fstep'] = key_name
+                        
+                        else:
+                            # 성공 횟수 증가
+                            lap_result['succ'] = 1
+                        
+                        if signal == 2:
+                            while True:
+                                time.sleep(1)
+                                if signal == 3:
+                                    return -1
+                                if signal == 1:
+                                    break
+                        if signal == 3:
+                            return -3
+                        # 지연
+                        try:
+                            time.sleep(int(step[4]))
+                        except:
+                            pass
                     else:
-                        # 성공 횟수 증가
-                        lap_result['succ'] = 1
-                    
-                    if signal == 2:
-                        while True:
-                            time.sleep(1)
-                    if signal == 3:
-                        return -3
-                    # 지연
-                    try:
-                        time.sleep(int(step[4]))
-                    except:
-                        pass
-                else:
-                    self.saveExpResult(step[3], res[3])
+                        self.saveExpResult(step[3], res[3])
 
             if prepare_mode == False:
                 # 1lap 수행 여부
@@ -835,7 +850,7 @@ class OmsTester:
        for cert in self.cert_id_list:
            # 시나리오를 한번 실행해서 예상 결과 저장
            thread = threading.Thread(target = self.runScenario,
-                                     args = (cert, resq, signal, True,))
+                                     args = (cert, resq, signal,))
            threads.append(thread)
            thread.start()
        
@@ -899,6 +914,7 @@ def runShooters(shooters, thread_count):
     '''
     실제 테스트 실행부
     '''
+    
     # 결과 전달용 큐 (자식 -> 부모)
     resq = mp.Queue()
     # 신호 전달용 공유메모리 (부모 -> 자식)
@@ -907,15 +923,21 @@ def runShooters(shooters, thread_count):
     start_after_prepare = (
         getBoolStr(shooters[0].gconf['CONF']['start_after_prepare']))
     
-    if start_after_prepare == False:
+    use_verify = (
+        getBoolStr(shooters[0].gconf['CONF']['start_after_prepare']))
+    
+    if start_after_prepare == False or use_verify == False:
         signal.value = 1
     
     procs = []
     threads_ready = []
     # 키 : shooter_id [0]수행시간, [1]스탭 횟수, [2] 성공 횟수, [3] 실패 횟수
     all_status = {}
+    step_status = {}
     threads_finish = []
+    result = {}
     
+    result['stime'] = time.time()
     # Create Processes
     for shooter in shooters:
         all_status[shooter.shooter_id] = {'shooter_id': shooter.shooter_id,
@@ -923,7 +945,8 @@ def runShooters(shooters, thread_count):
                                           'runcount':0,
                                           'success':0,
                                           'failcount':0,
-                                          'failstep':[]}
+                                          'failstep':[],
+                                          }
         proc = mp.Process(target=shooter.runTest,
                           args=(resq, signal,))
         proc.start()
@@ -961,26 +984,36 @@ def runShooters(shooters, thread_count):
                 all_status[buf[0]]['runcount'] += buf[2]['runc']
                 all_status[buf[0]]['success'] += buf[2]['succ']
                 all_status[buf[0]]['failcount'] += buf[2]['fail']
-                all_status[buf[0]]['failstep'] += buf[2]['fstep']
+                if buf[2]['fstep'] != '':
+                    all_status[buf[0]]['failstep'].append(buf[2]['fstep'])
+                    all_status[buf[0]]['failstep'] = list(set(all_status[buf[0]]['failstep']))
                 printCurStatus(all_status)
                         
             if 'endres' == buf[1]:
                 threads_finish.append(buf[0])
                 if len(threads_finish) >= threads_cnt:
                     signal.value = 3
-                    printCurStatus(all_status)
+                    result['status'] = all_status
                     break
-
-        time.sleep(1)
             
     for proc in procs:
         proc.join()
+    
+    result['ftime'] = time.time()
+    
+    printResult(result)
 
 def printInitInfo(init_info, gconf):
     table = []
     header = ['Shooter ID', 'Cert ID',
               'NIC', 'Public IP']
 
+    # 설정 정보 출력
+    print('\n[Configuration]')
+    for key in gconf['CONF'].keys():
+        print("> %s : %s"%(key, gconf['CONF'][key]))
+        
+    # 슈터 정보 출력
     for line in init_info:
         #Shooter ID 추가
         row = [line[0]]
@@ -991,7 +1024,6 @@ def printInitInfo(init_info, gconf):
             temp = [i[0] for i in line[1][0:2]]
             temp.append('...')
             temp += [i[0] for i in line[1][-2:]]
-            print(str(temp))
             row.append(str(temp).strip('[]'))
         else:
             row.append(str([i[0] for i in line[1]]).strip('[]'))
@@ -1010,13 +1042,15 @@ def printInitInfo(init_info, gconf):
         
         table.append(row)
         
-    print('[Shooter\'s Information]')
+    print('\n[Shooter Information]')
     printTable(table, header)
         
 def printCurStatus(all_status):
     table = []
     result_header = ['Shooter ID', 'Average Time', 'Run Count', 
                      'Success', 'Failure', 'Fail Step']
+    
+    total_value = ['', [], 0, 0, 0, '']
     
     for sid in all_status:
         row = []
@@ -1026,17 +1060,71 @@ def printCurStatus(all_status):
                         / len(all_status[sid]['runtime']))
         except:
             avg_time = 0
-        row.append(round(avg_time,3))
+        row.append(round(avg_time,2))
+        
+        if avg_time > 0:
+            total_value[1].append(avg_time)
+        
         row.append(all_status[sid]['runcount'])
+        total_value[2] += all_status[sid]['runcount']
+        
         row.append(all_status[sid]['success'])
+        total_value[3] += all_status[sid]['success']
+        
         row.append(all_status[sid]['failcount'])
-        row.append(list(set(all_status[sid]['failstep'])))
+        total_value[4] += all_status[sid]['failcount']
+        
+        if len(all_status[sid]['failstep']) != 0:
+            row.append(list(set(all_status[sid]['failstep'])))
+            
         table.append(row)
+    
+    total_value[1] = round(sum(total_value[1], 0)/
+                           len(total_value[1]), 2)
+    table.append(total_value)
 
     os.system('clear')
 
     print('[Current Processes status]')  
     printTable(table, result_header)
+
+def printResult(result):
+    table = []
+    header = ['Item', 'Value']
+    
+    table.append(['Start Time',
+                  time.strftime('%Y-%m-%d %H:%M:%S', 
+                                time.localtime(result['stime']))])
+    table.append(['Finish Time',
+                  time.strftime('%Y-%m-%d %H:%M:%S', 
+                                time.localtime(result['ftime']))])
+    table.append(['Running Time',
+                  round(result['ftime'] 
+                        - result['stime'],2)])
+    tot_runcnt = 0
+    tot_succcnt = 0
+    tot_failcnt = 0
+    fail_detail = []
+    tmp_rt = []
+    
+    r = result['status']
+    for key in r.keys():
+        tmp_rt += r[key]['runtime']
+        tot_runcnt += r[key]['runcount']
+        tot_succcnt += r[key]['success']
+        tot_failcnt += r[key]['failcount']
+        if 0 != len(r[key]['failstep']):
+            fail_detail.append(r[key]['failstep'])
+        
+    avg_runtime = round((sum(tmp_rt,0)/len(tmp_rt)),2)
+    table.append(['Average Lap Time', avg_runtime])
+    table.append(['Total Lap count', tot_runcnt])
+    table.append(['Total Success count', tot_succcnt])
+    table.append(['Total Failure count', tot_failcnt])
+    table.append(['Failure details', fail_detail])
+    
+    print('\n[Total result statistics]')
+    printTable(table, header)
 
 
 if __name__ == '__main__':

@@ -404,6 +404,8 @@ def byteToNum(bytestr:bytes, sign=False):
 
 def getBoolStr(text):
     true_str = 'true'
+    if type(text) == bool:
+        return text
     if text.lower() == true_str:
         return True
     return False
@@ -420,7 +422,7 @@ def printTable(table_list:list, header:list, showheader=True):
 
     table = Table(show_header=True, header_style="bold")
     for col in header:
-        table.add_column(col, justify="center")
+        table.add_column(col, justify="full")
     
     for row in table_list:
         tmp = []
