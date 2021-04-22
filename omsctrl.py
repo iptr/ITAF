@@ -256,6 +256,7 @@ class OmsPktMaker:
                                        LOGIN_EX_STRUCTHASH,
                                        CHECK_CODE)
         payload += self.makeLoginInfo('ex')
+        return payload
     
     def makeService0112Req(self):    
         payload = self.makeCommandInfo(SERVICE0112_REQ,
