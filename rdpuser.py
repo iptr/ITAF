@@ -7,7 +7,9 @@ import sys
 import select
 from io import IOBase
 import commonlib
-from multiprocessing import Process
+from multiprocessing import Process, Lock
+import multiprocessing
+
 
 
 # 스택 사이즈 결정
@@ -15,7 +17,7 @@ if sys.version_info >= (3, 5):
 	threading.stack_size(1024 * 1024 * 2)
 
 # 기본 타임아웃 시간 설정
-socket.setdefaulttimeout(5)
+socket.setdefaulttimeout(100)
 
 
 class Packet:
@@ -93,7 +95,7 @@ class PacketReader:
 
 
 class VirtualConnector:
-	lock = threading.Lock()
+	lock = Lock()
 
 	def __init__(self, userIP, userPort, wtaIp, wtaPort):
 		'''
@@ -106,24 +108,21 @@ class VirtualConnector:
 		self.wtaPort = wtaPort
 		self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self.serversocket.bind(('', 4003))
+		self.serversocket.bind(('', 3389))
 		self.serversocket.listen(100)
 
 	def connect(self):
 		self.lock.acquire()
 		try:
 			terminal_socket1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			wta_manager_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			wta_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			wta_manager_socket = None#socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			wta_server_socket = None#socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			terminal_socket1.connect(("192.168.4.190",4095))
-			wta_manager_socket.connect(("127.0.0.1", 4000))
-			print("eee")
-			wta_server_socket.connect(("127.0.0.1",4001))
-			print("fff")
+			#wta_manager_socket.connect(("127.0.0.1", 4000))
+			#wta_server_socket.connect(("127.0.0.1",4001))
 			(terminal_socket, address) = self.serversocket.accept()
 			return (wta_manager_socket, wta_server_socket,terminal_socket,terminal_socket1)
 		except Exception as e:
-			print("ddddd")
 			print(e)
 		finally:
 			self.lock.release()
@@ -132,11 +131,11 @@ class VirtualConnector:
 		self.serversocket.close()
 
 
-class Worker(threading.Thread):
+class Worker(multiprocessing.Process):
 	def __init__(self, num, connector, packets,
 				 timeout, repeat, sleep, verbose,
 				 callback, callback_arg):
-		threading.Thread.__init__(self)
+		multiprocessing.Process.__init__(self)
 		self.num = num
 		self.connector = connector
 		self.packets = packets
@@ -194,8 +193,9 @@ class Worker(threading.Thread):
 			print("Connected %d." % self.num)
 
 			if self.timeout:
-				wta_manager_socket.settimeout(self.timeout)
-				wta_server_socket.settimeout(self.timeout)
+				#pass
+				#wta_manager_socket.settimeout(self.timeout)
+				#wta_server_socket.settimeout(self.timeout)
 				terminal_socket.settimeout(self.timeout)
 
 			pos = 0
@@ -209,16 +209,8 @@ class Worker(threading.Thread):
 						break
 					pos_end += 1
 				try:
-					procs = []
-					for i in range(100):
-						proc = Process(target=self.send_packet,args=(pos, pos_end, wta_manager_socket, wta_server_socket,terminal_socket,s1,))
-						procs.append(proc)
-					for proc in procs:
-						proc.start()
-					for proc in procs:
-						proc.join()
-					#self.send_packet(pos, pos_end, wta_manager_socket, wta_server_socket,terminal_socket,s1)
-					print("dddzzzz123")
+					time.sleep(1)
+					self.send_packet(pos, pos_end, wta_manager_socket, wta_server_socket,terminal_socket,s1)
 
 				except socket.timeout:
 					print('T(%d/0)' % len(packet.packet), end=' ')
@@ -231,23 +223,22 @@ class Worker(threading.Thread):
 
 			if self.sleep != 0:
 				time.sleep(self.sleep)
-			wta_manager_socket.close()
-			wta_manager_socket = None
-			wta_server_socket.close()
-			wta_server_socket = None
-			terminal_socket.close()
-			terminal_socket = None
-			s1.close()
-			s1 = None
+			#wta_manager_socket.close()
+			#wta_manager_socket = None
+			#wta_server_socket.close()
+			#wta_server_socket = None
+			#terminal_socket.close()
+			#terminal_socket = None
+			#s1.close()
+			#s1 = None
 			print("Disconnected %d." % self.num)
 		except Exception as e:
-			print("dddddd3333")
 			print(e)
 
-		if wta_manager_socket:
-			wta_manager_socket.close()
-		if wta_server_socket:
-			wta_server_socket.close()
+		#if wta_manager_socket:
+		#	wta_manager_socket.close()
+		#if wta_server_socket:
+		#	wta_server_socket.close()
 		if terminal_socket:
 			terminal_socket.close()
 		if s1:
@@ -273,9 +264,9 @@ class Worker(threading.Thread):
 			sendSocket = s1
 			recvSocket = terminal_sock
 
-		print(wta_server_sock.getpeername())
-		print(wta_manager_sock.getpeername())
-		print(terminal_sock.getpeername())
+		#print(wta_server_sock.getpeername())
+		#print(wta_manager_sock.getpeername())
+		#print(terminal_sock.getpeername())
 
 		packetLen = pos_end - pos
 
@@ -305,7 +296,7 @@ class Worker(threading.Thread):
 				sendSize = 0
 				if pos + recvedPacket < len(self.packets):
 					sendSize = len(self.packets[pos].packet)
-				r = s.recv(sendSize * 2 + 0x10000)
+				r = s.recv(10000)
 
 				while r:
 					if recvedPacket >= packetLen:
@@ -331,12 +322,9 @@ class Worker(threading.Thread):
 					r = r[compareSize:]
 
 			for s in writeable:
-				print(s)
 				packet = self.packets[pos + sendedPacket].packet
 				if sended == 0:
-					print("Send")
-					print(direction)
-					print(type(packet))
+					#print("Send")
 					r = s.send(packet)
 					# if direction:
 					# 	r = terminal_sock.send(packet)
@@ -364,7 +352,7 @@ class Worker(threading.Thread):
 def runTest():
 	datafile = 'packet_tester.txt'
 	repeat = 1
-	thread_count = 1
+	process_count = 500
 	time_out = 5
 	sleep_time = 0
 	verbose = False
@@ -375,11 +363,10 @@ def runTest():
 
 	hexdata = commonlib.readFileLines(datafile)
 	packets = PacketReader.read(hexdata)
-	print(packets)
 
 	connector = VirtualConnector("127.0.0.1", 5000, "127.0.0.1", 4000)
 
-	totalTest = repeat * thread_count
+	totalTest = repeat * process_count
 	curCount = 0
 
 	def callback(arg):
@@ -390,16 +377,16 @@ def runTest():
 
 	start_time = time.time()
 
-	threads = []
-	for i in range(thread_count):
-		threads.append(Worker(i + 1, connector, packets,
+	process_list = []
+	for i in range(process_count):
+		process_list.append(Worker(i + 1, connector, packets,
 							  time_out, repeat, sleep_time, verbose,
 							  callback, callback_arg))
 		time.sleep(0)
-	for i in threads:
+	for i in process_list:
 		print('Thread starting : ', i.num)
 		i.start()
-	for i in threads:
+	for i in process_list:
 		i.join()
 		print('Thread joined.', i.num)
 
@@ -409,5 +396,21 @@ def runTest():
 
 
 if __name__ == '__main__':
+	# procs = []
+	# for i in range(100):
+	# 	proc = Process(target=runTest)
+	# 	procs.append(proc)
+	# for proc in procs:
+	# 	proc.start()
+	# for proc in procs:
+	# 	proc.join()
 	runTest()
+	# tl = []
+	# for i in range(10):
+	# 	t = threading.Thread(target=runTest)
+	# 	tl.append(t)
+	# for th in tl:
+	# 	th.start()
+	# for th in tl:
+	# 	th.join()
 
