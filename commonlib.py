@@ -412,6 +412,8 @@ def getBoolStr(text):
 
 def divList(orglist, n):
     n = int(n)
+    if len(orglist) <= n:
+        return [orglist]
     ret = [orglist[i*n:(i+1)*n] 
             for i in range(
                 int((len(orglist)+n-1)/n))]

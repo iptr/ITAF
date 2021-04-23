@@ -635,7 +635,7 @@ class OmsTester:
         path = tmp[1]
         
         if None != var:
-
+            # 메시지에 대한 해쉬값 검증
             ret_data[HASH_RET] = (get_hash(self.exp_data[var])
                                 == ret_value[2])
             if ret_data[HASH_RET] == False:
@@ -884,7 +884,16 @@ def setShooters():
     thread_count = len(cert_id_list)
     
     # 보안계정 목록 분배
+    
+    if (len(scen_list) * proc_count) >= int(len(cert_id_list)):
+        # 시나리오 및 복제 개수 > 보안계정 개수 처리 = 보안계정 개수만큼 수행
+        proc_count = 1
+        scen_list = scen_list[:int(len(cert_id_list))]
+    
+    # 시나리오 및 개수 < 보안계정 개수 처리 = 보안계정을 나눔
     cnt_per_scen = int(len(cert_id_list) / (len(scen_list) * proc_count))
+        
+        
     dist_cert_ids = divList(cert_id_list, cnt_per_scen)    
     
     for i, cert in enumerate(dist_cert_ids):
@@ -1025,7 +1034,7 @@ def printInitInfo(init_info, gconf):
             temp = [i[0] for i in line[1][0:2]]
             temp.append('...')
             temp += [i[0] for i in line[1][-2:]]
-            row.append(str(temp).strip('[]'))
+            row.append(str(temp).strip('[]').replace('\'...\'','...'))
         else:
             row.append(str([i[0] for i in line[1]]).strip('[]'))
         
