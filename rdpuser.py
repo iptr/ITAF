@@ -115,13 +115,9 @@ class VirtualConnector:
 		self.lock.acquire()
 		try:
 			terminal_socket1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			wta_manager_socket = None#socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			wta_server_socket = None#socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			terminal_socket1.connect(("192.168.4.190",4095))
-			#wta_manager_socket.connect(("127.0.0.1", 4000))
-			#wta_server_socket.connect(("127.0.0.1",4001))
 			(terminal_socket, address) = self.serversocket.accept()
-			return (wta_manager_socket, wta_server_socket,terminal_socket,terminal_socket1)
+			return (terminal_socket,terminal_socket1)
 		except Exception as e:
 			print(e)
 		finally:
@@ -158,19 +154,32 @@ class Worker(multiprocessing.Process):
 		시작 하는 함수
 
 		'''
-		print("Start thread %d." % self.num)
+		thread_list = []
 		if self.repeat == 0:
 			while True:
-				self.test()
+				for i in range(100):
+					thread = threading.Thread(target=self.test)
+					thread_list.append(thread)
+				for i in thread_list:
+					i.start()
+				for i in thread_list:
+					i.join()
 		else:
 			for i in range(self.repeat):
-				self.test()
+				for j in range(100):
+					thread = threading.Thread(target=self.test)
+					thread_list.append(thread)
+				for j in thread_list:
+					j.start()
+				for j in thread_list:
+					j.join()
+
 				if (self.cancelFlag):
 					break
 		if self.cancelFlag:
-			print("Job canceled in thread %d." % self.num)
+			print("Job canceled %d." % self.num)
 		else:
-			print("End thread %d." % self.num)
+			print("End %d." % self.num)
 
 	def cancel(self):
 		self.cancelFlag = True
@@ -183,19 +192,14 @@ class Worker(multiprocessing.Process):
 			self.callback(self.callback_arg)
 			return
 
-		wta_manager_socket = None
-		wta_server_socket = None
 		terminal_socket = None
 		s1 = None
 		try:
 			print("Connecting %d..." % self.num)
-			(wta_manager_socket, wta_server_socket,terminal_socket,s1) = self.connector.connect()
+			(terminal_socket,s1) = self.connector.connect()
 			print("Connected %d." % self.num)
 
 			if self.timeout:
-				#pass
-				#wta_manager_socket.settimeout(self.timeout)
-				#wta_server_socket.settimeout(self.timeout)
 				terminal_socket.settimeout(self.timeout)
 
 			pos = 0
@@ -223,10 +227,6 @@ class Worker(multiprocessing.Process):
 
 			if self.sleep != 0:
 				time.sleep(self.sleep)
-			#wta_manager_socket.close()
-			#wta_manager_socket = None
-			#wta_server_socket.close()
-			#wta_server_socket = None
 			#terminal_socket.close()
 			#terminal_socket = None
 			#s1.close()
@@ -235,10 +235,6 @@ class Worker(multiprocessing.Process):
 		except Exception as e:
 			print(e)
 
-		#if wta_manager_socket:
-		#	wta_manager_socket.close()
-		#if wta_server_socket:
-		#	wta_server_socket.close()
 		if terminal_socket:
 			terminal_socket.close()
 		if s1:
@@ -263,10 +259,6 @@ class Worker(multiprocessing.Process):
 		else:
 			sendSocket = s1
 			recvSocket = terminal_sock
-
-		#print(wta_server_sock.getpeername())
-		#print(wta_manager_sock.getpeername())
-		#print(terminal_sock.getpeername())
 
 		packetLen = pos_end - pos
 
@@ -352,7 +344,7 @@ class Worker(multiprocessing.Process):
 def runTest():
 	datafile = 'packet_tester.txt'
 	repeat = 1
-	process_count = 500
+	process_count = 128
 	time_out = 5
 	sleep_time = 0
 	verbose = False
@@ -384,11 +376,11 @@ def runTest():
 							  callback, callback_arg))
 		time.sleep(0)
 	for i in process_list:
-		print('Thread starting : ', i.num)
+		print('process starting : ', i.num)
 		i.start()
 	for i in process_list:
 		i.join()
-		print('Thread joined.', i.num)
+		print('process joined.', i.num)
 
 	elapsed_time = time.time() - start_time
 	print('\n')
