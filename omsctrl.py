@@ -98,7 +98,7 @@ CHECK_CODE = b'CK'
 class OmsPktMaker:
     '''
     OMS_DMS 테스트를 위한 작업 패킷을 만들기 위한 클래스
-    aaaa
+    aaaabbbb
     '''
     
     def setConf(self, cert_id):
