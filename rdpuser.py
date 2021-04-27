@@ -9,6 +9,8 @@ from io import IOBase
 import commonlib
 from multiprocessing import Process, Lock
 import multiprocessing
+import asyncio
+import pickle
 
 
 
@@ -111,13 +113,15 @@ class VirtualConnector:
 		self.serversocket.bind(('', 3389))
 		self.serversocket.listen(100)
 
-	def connect(self):
+	async def connect(self):
 		self.lock.acquire()
 		try:
 			terminal_socket1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			terminal_socket1.connect(("192.168.4.190",4095))
+			z = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			z.connect(("192.168.4.190", 3141))
 			(terminal_socket, address) = self.serversocket.accept()
-			return (terminal_socket,terminal_socket1)
+			return (terminal_socket,terminal_socket1,z)
 		except Exception as e:
 			print(e)
 		finally:
@@ -130,7 +134,7 @@ class VirtualConnector:
 class Worker(multiprocessing.Process):
 	def __init__(self, num, connector, packets,
 				 timeout, repeat, sleep, verbose,
-				 callback, callback_arg):
+				 callback, callback_arg,packet2):
 		multiprocessing.Process.__init__(self)
 		self.num = num
 		self.connector = connector
@@ -144,30 +148,45 @@ class Worker(multiprocessing.Process):
 		self.cancelFlag = False
 		self.progressCallback = None
 		self.progressCallbackArg = None
+		self.packet2 = packet2
 
 	def setProgressCallback(self, callback, callbackarg):
 		self.progressCallback = callback
 		self.progressCallbackArg = callbackarg
 
+	async def main(self):
+		t = asyncio.create_task(self.test())
+		await t
+
+	def testtest(self):
+		loop = asyncio.new_event_loop()
+		asyncio.set_event_loop(loop)
+		try:
+			loop.run_until_complete(self.main())
+		finally:
+			loop.close()
+		asyncio.set_event_loop(None)
 	def run(self):
 		'''
 		시작 하는 함수
 
 		'''
 		thread_list = []
+
 		if self.repeat == 0:
 			while True:
-				for i in range(100):
-					thread = threading.Thread(target=self.test)
-					thread_list.append(thread)
-				for i in thread_list:
-					i.start()
-				for i in thread_list:
-					i.join()
+				pass
+				# for i in range(10):
+				# 	thread = threading.Thread(target=self.test)
+				# 	thread_list.append(thread)
+				# for i in thread_list:
+				# 	i.start()
+				# for i in thread_list:
+				# 	i.join()
 		else:
 			for i in range(self.repeat):
-				for j in range(100):
-					thread = threading.Thread(target=self.test)
+				for j in range(10):
+					thread = threading.Thread(target=self.testtest)
 					thread_list.append(thread)
 				for j in thread_list:
 					j.start()
@@ -184,7 +203,7 @@ class Worker(multiprocessing.Process):
 	def cancel(self):
 		self.cancelFlag = True
 
-	def test(self):
+	async def test(self):
 		'''
 		패킷 테스트 하는 함수
 		'''
@@ -194,9 +213,10 @@ class Worker(multiprocessing.Process):
 
 		terminal_socket = None
 		s1 = None
+		z = None
 		try:
 			print("Connecting %d..." % self.num)
-			(terminal_socket,s1) = self.connector.connect()
+			(terminal_socket,s1,z) = await self.connector.connect()
 			print("Connected %d." % self.num)
 
 			if self.timeout:
@@ -214,7 +234,7 @@ class Worker(multiprocessing.Process):
 					pos_end += 1
 				try:
 					time.sleep(1)
-					self.send_packet(pos, pos_end, wta_manager_socket, wta_server_socket,terminal_socket,s1)
+					await self.send_packet(pos, pos_end, terminal_socket,s1,z)
 
 				except socket.timeout:
 					print('T(%d/0)' % len(packet.packet), end=' ')
@@ -239,10 +259,13 @@ class Worker(multiprocessing.Process):
 			terminal_socket.close()
 		if s1:
 			s1.close()
+		if z:
+			z.close()
 
 		self.callback(self.callback_arg)
 
-	def send_packet(self, pos, pos_end, wta_manager_sock, wta_server_sock, terminal_sock,s1):
+
+	async def send_packet(self, pos, pos_end, terminal_sock,s1,z):
 		'''
 		select를 이용하여 패킷 송수신을 담당하는 함수
 		'''
@@ -288,7 +311,7 @@ class Worker(multiprocessing.Process):
 				sendSize = 0
 				if pos + recvedPacket < len(self.packets):
 					sendSize = len(self.packets[pos].packet)
-				r = s.recv(10000)
+				r = s.recv(100000000)
 
 				while r:
 					if recvedPacket >= packetLen:
@@ -315,9 +338,12 @@ class Worker(multiprocessing.Process):
 
 			for s in writeable:
 				packet = self.packets[pos + sendedPacket].packet
+				#packet2 = self.packet2[pos].packet
 				if sended == 0:
 					#print("Send")
 					r = s.send(packet)
+
+
 					# if direction:
 					# 	r = terminal_sock.send(packet)
 					# else:
@@ -343,8 +369,9 @@ class Worker(multiprocessing.Process):
 
 def runTest():
 	datafile = 'packet_tester.txt'
+	datafile2 = 'packet_tester2.txt'
 	repeat = 1
-	process_count = 128
+	process_count = 3
 	time_out = 5
 	sleep_time = 0
 	verbose = False
@@ -355,6 +382,8 @@ def runTest():
 
 	hexdata = commonlib.readFileLines(datafile)
 	packets = PacketReader.read(hexdata)
+	testdata = commonlib.readFileLines(datafile2)
+	packet2 = PacketReader.read(testdata)
 
 	connector = VirtualConnector("127.0.0.1", 5000, "127.0.0.1", 4000)
 
@@ -373,7 +402,7 @@ def runTest():
 	for i in range(process_count):
 		process_list.append(Worker(i + 1, connector, packets,
 							  time_out, repeat, sleep_time, verbose,
-							  callback, callback_arg))
+							  callback, callback_arg,packet2))
 		time.sleep(0)
 	for i in process_list:
 		print('process starting : ', i.num)
