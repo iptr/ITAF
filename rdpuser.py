@@ -5,18 +5,15 @@ import socket
 import time
 import sys
 import select
-from io import IOBase
 import commonlib
 from multiprocessing import Process, Lock
 import multiprocessing
 import asyncio
-import pickle
-
 
 
 # 스택 사이즈 결정
 if sys.version_info >= (3, 5):
-	threading.stack_size(1024 * 1024 * 2)
+	threading.stack_size(1024 * 1024 * 1024)
 
 # 기본 타임아웃 시간 설정
 socket.setdefaulttimeout(100)
@@ -120,6 +117,8 @@ class VirtualConnector:
 			terminal_socket1.connect(("192.168.4.190",4095))
 			z = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			z.connect(("192.168.4.190", 3141))
+			y = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			y.connect(("192.168.4.190", 3140))
 			(terminal_socket, address) = self.serversocket.accept()
 			return (terminal_socket,terminal_socket1,z)
 		except Exception as e:
@@ -132,6 +131,7 @@ class VirtualConnector:
 
 
 class Worker(multiprocessing.Process):
+
 	def __init__(self, num, connector, packets,
 				 timeout, repeat, sleep, verbose,
 				 callback, callback_arg,packet2):
@@ -185,7 +185,7 @@ class Worker(multiprocessing.Process):
 				# 	i.join()
 		else:
 			for i in range(self.repeat):
-				for j in range(10):
+				for j in range(100):
 					thread = threading.Thread(target=self.testtest)
 					thread_list.append(thread)
 				for j in thread_list:
@@ -211,9 +211,6 @@ class Worker(multiprocessing.Process):
 			self.callback(self.callback_arg)
 			return
 
-		terminal_socket = None
-		s1 = None
-		z = None
 		try:
 			print("Connecting %d..." % self.num)
 			(terminal_socket,s1,z) = await self.connector.connect()
@@ -223,18 +220,26 @@ class Worker(multiprocessing.Process):
 				terminal_socket.settimeout(self.timeout)
 
 			pos = 0
-
+			test_pos = 0
+			pos_end2 = 0
 			while pos < len(self.packets):
 				packet = self.packets[pos]
+				test_packet = self.packet2[test_pos]
 				pos_end = pos + 1
+
+				if pos_end2 < len(self.packet2) - 1:
+					pos_end2 = test_pos + 1
+
 				while pos_end < len(self.packets):
 					packet2 = self.packets[pos_end]
 					if packet.direction != packet2.direction:
 						break
 					pos_end += 1
+
+
 				try:
-					time.sleep(1)
-					await self.send_packet(pos, pos_end, terminal_socket,s1,z)
+					#time.sleep(1)
+					await self.send_packet(pos, pos_end, terminal_socket,s1,z,test_pos,pos_end2)
 
 				except socket.timeout:
 					print('T(%d/0)' % len(packet.packet), end=' ')
@@ -242,6 +247,7 @@ class Worker(multiprocessing.Process):
 				if self.progressCallback:
 					self.progressCallback(self.progressCallbackArg, pos_end - pos)
 				pos = pos_end
+				test_pos = pos_end2
 				if self.cancelFlag:
 					break
 
@@ -251,21 +257,22 @@ class Worker(multiprocessing.Process):
 			#terminal_socket = None
 			#s1.close()
 			#s1 = None
+
 			print("Disconnected %d." % self.num)
 		except Exception as e:
 			print(e)
 
-		if terminal_socket:
-			terminal_socket.close()
-		if s1:
-			s1.close()
-		if z:
-			z.close()
+		# if terminal_socket:
+		# 	terminal_socket.close()
+		# if s1:
+		# 	s1.close()
+		# if z:
+		# 	z.close()
 
 		self.callback(self.callback_arg)
 
 
-	async def send_packet(self, pos, pos_end, terminal_sock,s1,z):
+	async def send_packet(self, pos, pos_end, terminal_sock,s1,z,pos2,pos_end2):
 		'''
 		select를 이용하여 패킷 송수신을 담당하는 함수
 		'''
@@ -273,7 +280,6 @@ class Worker(multiprocessing.Process):
 		sended = 0
 		recvedPacket = 0
 		recved = 0
-
 		direction = self.packets[pos].direction
 
 		if direction:
@@ -308,6 +314,7 @@ class Worker(multiprocessing.Process):
 				return
 
 			for s in readable:
+				print("read!")
 				sendSize = 0
 				if pos + recvedPacket < len(self.packets):
 					sendSize = len(self.packets[pos].packet)
@@ -338,7 +345,6 @@ class Worker(multiprocessing.Process):
 
 			for s in writeable:
 				packet = self.packets[pos + sendedPacket].packet
-				#packet2 = self.packet2[pos].packet
 				if sended == 0:
 					#print("Send")
 					r = s.send(packet)
@@ -361,6 +367,12 @@ class Worker(multiprocessing.Process):
 						if self.sleep != 0:
 							time.sleep(self.sleep)
 
+				if pos_end2 < len(self.packet2) - 1:
+					print(pos2)
+					print("send!!!!!!")
+					z.send(self.packet2[pos2].packet)
+
+
 			if exceptional:
 				print('E', end=' ')
 				sys.stdout.flush()
@@ -371,7 +383,7 @@ def runTest():
 	datafile = 'packet_tester.txt'
 	datafile2 = 'packet_tester2.txt'
 	repeat = 1
-	process_count = 3
+	process_count = 128
 	time_out = 5
 	sleep_time = 0
 	verbose = False
