@@ -6,17 +6,18 @@ import time
 import sys
 import select
 import commonlib
-from multiprocessing import Process, Lock
+from multiprocessing import Process, Lock, Queue
 import multiprocessing
 import asyncio
+import cProfile
 
 
 # 스택 사이즈 결정
 if sys.version_info >= (3, 5):
-	threading.stack_size(1024 * 1024 * 1024)
+	threading.stack_size(1024 * 1024 * 1024 * 2)
 
 # 기본 타임아웃 시간 설정
-socket.setdefaulttimeout(100)
+socket.setdefaulttimeout(3)
 
 
 class Packet:
@@ -96,15 +97,15 @@ class PacketReader:
 class VirtualConnector:
 	lock = Lock()
 
-	def __init__(self, userIP, userPort, wtaIp, wtaPort):
+	def __init__(self, dbsafer_ip, dbsafer_port):
 		'''
 
 		@param
-			wtaIp - wta IP
-			wtaPort - wta PORT
+			dbsafer_ip - 접속하고자하는 dbsafer IP
+			dbsafer_port - 접속하고자하는 dbsafer port
 		'''
-		self.wtaIp = wtaIp
-		self.wtaPort = wtaPort
+		self.dbsafer_ip = dbsafer_ip
+		self.dbsafer_port = dbsafer_port
 		self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.serversocket.bind(('', 3389))
@@ -113,15 +114,16 @@ class VirtualConnector:
 	async def connect(self):
 		self.lock.acquire()
 		try:
-			terminal_socket1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			terminal_socket1.connect(("192.168.4.190",4095))
-			z = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			z.connect(("192.168.4.190", 3141))
-			y = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			y.connect(("192.168.4.190", 3140))
+			telnet_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			#TODO : dbsafer_ip,port 대입
+			telnet_socket.connect(("192.168.4.87",4215))
+			wta_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			# TODO : dbsafer_ip 대입
+			wta_socket.connect(("192.168.4.87", 3141))
 			(terminal_socket, address) = self.serversocket.accept()
-			return (terminal_socket,terminal_socket1,z)
+			return (terminal_socket,telnet_socket,wta_socket)
 		except Exception as e:
+			print("Session Error")
 			print(e)
 		finally:
 			self.lock.release()
@@ -134,7 +136,7 @@ class Worker(multiprocessing.Process):
 
 	def __init__(self, num, connector, packets,
 				 timeout, repeat, sleep, verbose,
-				 callback, callback_arg,packet2):
+				 callback, callback_arg,thread_count,wta_packet,que):
 		multiprocessing.Process.__init__(self)
 		self.num = num
 		self.connector = connector
@@ -148,24 +150,27 @@ class Worker(multiprocessing.Process):
 		self.cancelFlag = False
 		self.progressCallback = None
 		self.progressCallbackArg = None
-		self.packet2 = packet2
+		self.thread_count = thread_count
+		self.wta_packet = wta_packet
+		self.q = que
 
 	def setProgressCallback(self, callback, callbackarg):
 		self.progressCallback = callback
 		self.progressCallbackArg = callbackarg
 
-	async def main(self):
+	async def createAsyncio(self):
 		t = asyncio.create_task(self.test())
 		await t
 
-	def testtest(self):
+	def callAsyncio(self):
 		loop = asyncio.new_event_loop()
 		asyncio.set_event_loop(loop)
 		try:
-			loop.run_until_complete(self.main())
+			loop.run_until_complete(self.createAsyncio())
 		finally:
 			loop.close()
 		asyncio.set_event_loop(None)
+
 	def run(self):
 		'''
 		시작 하는 함수
@@ -174,19 +179,11 @@ class Worker(multiprocessing.Process):
 		thread_list = []
 
 		if self.repeat == 0:
-			while True:
 				pass
-				# for i in range(10):
-				# 	thread = threading.Thread(target=self.test)
-				# 	thread_list.append(thread)
-				# for i in thread_list:
-				# 	i.start()
-				# for i in thread_list:
-				# 	i.join()
 		else:
 			for i in range(self.repeat):
-				for j in range(100):
-					thread = threading.Thread(target=self.testtest)
+				for j in range(self.thread_count):
+					thread = threading.Thread(target=self.callAsyncio)
 					thread_list.append(thread)
 				for j in thread_list:
 					j.start()
@@ -195,6 +192,7 @@ class Worker(multiprocessing.Process):
 
 				if (self.cancelFlag):
 					break
+
 		if self.cancelFlag:
 			print("Job canceled %d." % self.num)
 		else:
@@ -213,22 +211,27 @@ class Worker(multiprocessing.Process):
 
 		try:
 			print("Connecting %d..." % self.num)
-			(terminal_socket,s1,z) = await self.connector.connect()
+			(terminal_socket,telnet_socket,wta_socket) = await self.connector.connect()
+			try:
+				self.q.put(terminal_socket)
+				self.q.put(telnet_socket)
+				self.q.put(wta_socket)
+			except Exception as e:
+				print("ERROR")
 			print("Connected %d." % self.num)
 
 			if self.timeout:
 				terminal_socket.settimeout(self.timeout)
 
 			pos = 0
-			test_pos = 0
-			pos_end2 = 0
+			wta_pos = 0
+			wta_pos_end = 0
 			while pos < len(self.packets):
 				packet = self.packets[pos]
-				test_packet = self.packet2[test_pos]
 				pos_end = pos + 1
 
-				if pos_end2 < len(self.packet2) - 1:
-					pos_end2 = test_pos + 1
+				if wta_pos_end < len(self.wta_packet) - 1:
+					wta_pos_end = wta_pos + 1
 
 				while pos_end < len(self.packets):
 					packet2 = self.packets[pos_end]
@@ -238,8 +241,7 @@ class Worker(multiprocessing.Process):
 
 
 				try:
-					#time.sleep(1)
-					await self.send_packet(pos, pos_end, terminal_socket,s1,z,test_pos,pos_end2)
+					await self.send_packet(pos, pos_end, terminal_socket,telnet_socket,wta_socket,wta_pos,wta_pos_end)
 
 				except socket.timeout:
 					print('T(%d/0)' % len(packet.packet), end=' ')
@@ -247,32 +249,21 @@ class Worker(multiprocessing.Process):
 				if self.progressCallback:
 					self.progressCallback(self.progressCallbackArg, pos_end - pos)
 				pos = pos_end
-				test_pos = pos_end2
+				wta_pos = wta_pos_end
 				if self.cancelFlag:
 					break
 
 			if self.sleep != 0:
 				time.sleep(self.sleep)
-			#terminal_socket.close()
-			#terminal_socket = None
-			#s1.close()
-			#s1 = None
 
-			print("Disconnected %d." % self.num)
+			print("Session wait %d." % self.num)
 		except Exception as e:
+			print("sendError")
 			print(e)
-
-		# if terminal_socket:
-		# 	terminal_socket.close()
-		# if s1:
-		# 	s1.close()
-		# if z:
-		# 	z.close()
 
 		self.callback(self.callback_arg)
 
-
-	async def send_packet(self, pos, pos_end, terminal_sock,s1,z,pos2,pos_end2):
+	async def send_packet(self, pos, pos_end, terminal_sock, telnet_socket, wta_socket, wta_pos, wta_pos_end):
 		'''
 		select를 이용하여 패킷 송수신을 담당하는 함수
 		'''
@@ -284,9 +275,9 @@ class Worker(multiprocessing.Process):
 
 		if direction:
 			sendSocket = terminal_sock
-			recvSocket = s1
+			recvSocket = telnet_socket
 		else:
-			sendSocket = s1
+			sendSocket = telnet_socket
 			recvSocket = terminal_sock
 
 		packetLen = pos_end - pos
@@ -314,7 +305,6 @@ class Worker(multiprocessing.Process):
 				return
 
 			for s in readable:
-				print("read!")
 				sendSize = 0
 				if pos + recvedPacket < len(self.packets):
 					sendSize = len(self.packets[pos].packet)
@@ -367,10 +357,10 @@ class Worker(multiprocessing.Process):
 						if self.sleep != 0:
 							time.sleep(self.sleep)
 
-				if pos_end2 < len(self.packet2) - 1:
-					print(pos2)
-					print("send!!!!!!")
-					z.send(self.packet2[pos2].packet)
+		if wta_pos_end < len(self.wta_packet) - 1:
+			#pass
+			#print(self.wta_packet[wta_pos].packet)
+			wta_socket.send(self.wta_packet[wta_pos].packet)
 
 
 			if exceptional:
@@ -379,11 +369,10 @@ class Worker(multiprocessing.Process):
 				return
 
 
-def runTest():
+def runTest(process_count = 128, thread_count = 100):
 	datafile = 'packet_tester.txt'
 	datafile2 = 'packet_tester2.txt'
 	repeat = 1
-	process_count = 128
 	time_out = 5
 	sleep_time = 0
 	verbose = False
@@ -394,10 +383,11 @@ def runTest():
 
 	hexdata = commonlib.readFileLines(datafile)
 	packets = PacketReader.read(hexdata)
-	testdata = commonlib.readFileLines(datafile2)
-	packet2 = PacketReader.read(testdata)
 
-	connector = VirtualConnector("127.0.0.1", 5000, "127.0.0.1", 4000)
+	hexdata = commonlib.readFileLines(datafile2)
+	wta_packet = PacketReader.read(hexdata)
+
+	connector = VirtualConnector("127.0.0.1", 5000)
 
 	totalTest = repeat * process_count
 	curCount = 0
@@ -411,10 +401,13 @@ def runTest():
 	start_time = time.time()
 
 	process_list = []
+
+	test = Queue()
+
 	for i in range(process_count):
 		process_list.append(Worker(i + 1, connector, packets,
 							  time_out, repeat, sleep_time, verbose,
-							  callback, callback_arg,packet2))
+							  callback, callback_arg,thread_count,wta_packet,test))
 		time.sleep(0)
 	for i in process_list:
 		print('process starting : ', i.num)
@@ -423,27 +416,15 @@ def runTest():
 		i.join()
 		print('process joined.', i.num)
 
+	test.close()
+
 	elapsed_time = time.time() - start_time
 	print('\n')
 	print('Done. [%02d:%02d:%02.2d]' % (int(elapsed_time) / 60 / 60, int(elapsed_time) / 60 % 60, elapsed_time % 60))
 
 
 if __name__ == '__main__':
-	# procs = []
-	# for i in range(100):
-	# 	proc = Process(target=runTest)
-	# 	procs.append(proc)
-	# for proc in procs:
-	# 	proc.start()
-	# for proc in procs:
-	# 	proc.join()
-	runTest()
-	# tl = []
-	# for i in range(10):
-	# 	t = threading.Thread(target=runTest)
-	# 	tl.append(t)
-	# for th in tl:
-	# 	th.start()
-	# for th in tl:
-	# 	th.join()
+	#cProfile.run("runTest(1,2)")
+	runTest(50,10)
+
 
