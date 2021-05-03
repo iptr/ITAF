@@ -10,7 +10,8 @@ from multiprocessing import Process, Lock, Queue
 import multiprocessing
 import asyncio
 import cProfile
-
+import pickle
+import packetutil
 
 # 스택 사이즈 결정
 if sys.version_info >= (3, 5):
@@ -18,119 +19,6 @@ if sys.version_info >= (3, 5):
 
 # 기본 타임아웃 시간 설정
 socket.setdefaulttimeout(3)
-
-
-class Packet:
-	direction = True
-	packet = ''
-
-	def __init__(self, direction, packet):
-		'''
-		생성자
-
-		@param
-			direction - 세션 구분자
-			packet - 데이터
-		'''
-		self.direction = direction
-		self.packet = packet
-
-
-class PacketReader:
-	@staticmethod
-	def read(data):
-		'''
-		패킷 데이터를 읽는 함수
-
-		@param
-			data - 패킷 데이터
-
-		@return
-			읽은 패킷 데이터 리스트
-		'''
-
-		datas = ""
-
-		# 패킷 데이터 줄단위로 나눔
-		if isinstance(data, list) or isinstance(data, str):
-			data = ''.join(data)
-			datas = data.split('\n')
-		else:
-			print("ERROR!@#!@#")
-			return False
-
-		ret = []
-		packet = []
-
-		last_direction = True
-		for l in datas:
-			l_strip = l.strip()
-			if len(l_strip) == 0:
-				if len(packet) == 0:
-					continue
-				ret.append(Packet(last_direction, bytes(packet)))
-				packet = []
-				continue
-			direction = l[0] != ' '
-			# Check direction.
-			if last_direction != direction and len(packet) != 0:
-				ret.append(Packet(last_direction, bytes(packet)))
-				packet = []
-			last_direction = direction
-
-			values = ''.join(l_strip[10:59].split(' '))
-			# ASCII 변환
-			bytes_value = binascii.unhexlify(values)
-			packet.extend(list(bytes_value))
-
-			if (len(bytes_value) < 16 and len(packet) != 0):
-				# 패킷을 바이트로 인코딩 한 결과를 추가
-				ret.append(Packet(last_direction, bytes(packet)))
-				packet = []
-
-		if len(packet) != 0:
-			ret.append(Packet(last_direction, bytes(packet)))
-
-		return ret
-
-
-class VirtualConnector:
-	lock = Lock()
-
-	def __init__(self, dbsafer_ip, dbsafer_port):
-		'''
-
-		@param
-			dbsafer_ip - 접속하고자하는 dbsafer IP
-			dbsafer_port - 접속하고자하는 dbsafer port
-		'''
-		self.dbsafer_ip = dbsafer_ip
-		self.dbsafer_port = dbsafer_port
-		self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self.serversocket.bind(('', 3389))
-		self.serversocket.listen(100)
-
-	async def connect(self):
-		self.lock.acquire()
-		try:
-			telnet_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			#TODO : dbsafer_ip,port 대입
-			telnet_socket.connect(("192.168.4.87",4215))
-			wta_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			# TODO : dbsafer_ip 대입
-			wta_socket.connect(("192.168.4.87", 3141))
-			(terminal_socket, address) = self.serversocket.accept()
-			return (terminal_socket,telnet_socket,wta_socket)
-		except Exception as e:
-			print("Session Error")
-			print(e)
-		finally:
-			self.lock.release()
-
-	def destroy(self):
-		self.serversocket.close()
-
 
 class Worker(multiprocessing.Process):
 
@@ -178,10 +66,13 @@ class Worker(multiprocessing.Process):
 		'''
 		thread_list = []
 
+		# 반복 횟수가 0 일경우
 		if self.repeat == 0:
 				pass
+		# 반복 횟수가 지정되어 있을 경우
 		else:
 			for i in range(self.repeat):
+				# 쓰레드 생성
 				for j in range(self.thread_count):
 					thread = threading.Thread(target=self.callAsyncio)
 					thread_list.append(thread)
@@ -211,11 +102,13 @@ class Worker(multiprocessing.Process):
 
 		try:
 			print("Connecting %d..." % self.num)
-			(terminal_socket,telnet_socket,wta_socket) = await self.connector.connect()
+			# 각 세션 소켓 반환
+			(terminal_socket,telnet_socket,wta_socket) = await self.connector.rdpModeConnect()
 			try:
 				self.q.put(terminal_socket)
 				self.q.put(telnet_socket)
 				self.q.put(wta_socket)
+
 			except Exception as e:
 				print("ERROR")
 			print("Connected %d." % self.num)
@@ -226,6 +119,7 @@ class Worker(multiprocessing.Process):
 			pos = 0
 			wta_pos = 0
 			wta_pos_end = 0
+			# 패킷 길이 확인 및 전송
 			while pos < len(self.packets):
 				packet = self.packets[pos]
 				pos_end = pos + 1
@@ -241,6 +135,7 @@ class Worker(multiprocessing.Process):
 
 
 				try:
+					# 패킷 전송
 					await self.send_packet(pos, pos_end, terminal_socket,telnet_socket,wta_socket,wta_pos,wta_pos_end)
 
 				except socket.timeout:
@@ -368,7 +263,6 @@ class Worker(multiprocessing.Process):
 				sys.stdout.flush()
 				return
 
-
 def runTest(process_count = 128, thread_count = 100):
 	datafile = 'packet_tester.txt'
 	datafile2 = 'packet_tester2.txt'
@@ -382,12 +276,12 @@ def runTest(process_count = 128, thread_count = 100):
 		sys.exit(-1)
 
 	hexdata = commonlib.readFileLines(datafile)
-	packets = PacketReader.read(hexdata)
+	packets = packetutil.PacketReader.read(hexdata)
 
 	hexdata = commonlib.readFileLines(datafile2)
-	wta_packet = PacketReader.read(hexdata)
+	wta_packet = packetutil.PacketReader.read(hexdata)
 
-	connector = VirtualConnector("127.0.0.1", 5000)
+	connector = packetutil.VirtualConnector(3389,"192.168.4.190", 4095)
 
 	totalTest = repeat * process_count
 	curCount = 0
@@ -408,7 +302,7 @@ def runTest(process_count = 128, thread_count = 100):
 		process_list.append(Worker(i + 1, connector, packets,
 							  time_out, repeat, sleep_time, verbose,
 							  callback, callback_arg,thread_count,wta_packet,test))
-		time.sleep(0)
+
 	for i in process_list:
 		print('process starting : ', i.num)
 		i.start()
@@ -422,9 +316,8 @@ def runTest(process_count = 128, thread_count = 100):
 	print('\n')
 	print('Done. [%02d:%02d:%02.2d]' % (int(elapsed_time) / 60 / 60, int(elapsed_time) / 60 % 60, elapsed_time % 60))
 
-
 if __name__ == '__main__':
 	#cProfile.run("runTest(1,2)")
-	runTest(50,10)
+	runTest(10,10)
 
 
