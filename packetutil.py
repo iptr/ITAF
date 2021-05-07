@@ -1,6 +1,9 @@
 import socket
 import binascii
 from multiprocessing import Lock
+import termctrl
+import wtapacket
+
 
 class Packet:
     direction = True
@@ -89,6 +92,7 @@ class VirtualConnector:
         '''
         self.dbsafer_ip = dbsafer_ip
         self.dbsafer_port = dbsafer_port
+        self.service_port = service_port
         self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.serversocket.bind(('', service_port))
@@ -100,6 +104,7 @@ class VirtualConnector:
             service_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             service_sock.connect((self.dbsafer_ip, self.dbsafer_port))
             (db_sock, address) = self.serversocket.accept()
+            time.sleep(10)
             return (db_sock, service_sock)
         except Exception as e:
             print("Session Error")
@@ -110,11 +115,25 @@ class VirtualConnector:
     async def rdpModeConnect(self):
         self.lock.acquire()
         try:
+            nat = termctrl.NATIDPKT()
             telnet_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            print(self.dbsafer_port)
             telnet_socket.connect((self.dbsafer_ip, self.dbsafer_port))
+            telnet_socket.send(nat.set(tgip="10.77.162.11",tgport=self.service_port,gwport=self.dbsafer_port,gwip="192.168.4.190",certid="shyoon",loip=telnet_socket.getsockname()[0],loport=telnet_socket.getsockname()[1]))
+            # 필수정보 교체: 대상서비스번호, 대상IP, port, 로컬IP, 로컬port, dbsIP, dbsport,
+            #               보안계정)))
             wta_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            wta_socket.connect((self.dbsafer_ip, 3141))
             (terminal_socket, address) = self.serversocket.accept()
+            wta_socket.connect((self.dbsafer_ip, 3140))
+            w = wtapacket.WtaPacketMaker()
+            w.makePacket(client_ip="10.77.162.11", client_port=self.service_port, wta_proxy_port=3141,
+             				 service_port=self.dbsafer_port,
+             				 service_ip="192.168.4.190")
+            print(w.encryptPacket())
+            wta_socket.send(w.encryptPacket())
+            print(terminal_socket)
+            print(telnet_socket)
+            print(wta_socket)
             return (terminal_socket, telnet_socket, wta_socket)
         except Exception as e:
             print("Session Error")
@@ -124,3 +143,4 @@ class VirtualConnector:
 
     def destroy(self):
         self.serversocket.close()
+
