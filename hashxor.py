@@ -4,7 +4,7 @@ import hashlib
 
 class HashXor:
     def __init__(self,hash):
-        self.hash = hash
+        self.hash = hash[0:16]
         self.pos = 0
         self.old_ch = 127
 
@@ -26,7 +26,8 @@ class HashXor:
 
         self.pos = 0
         self.old_ch = 127
-        return result
+
+        return bytes(result)
 
 
     def decrypt(self, data, data_len):
@@ -49,7 +50,7 @@ class HashXor:
         self.pos = 0
         self.old_ch = 127
 
-        return result
+        return bytes(result)
 
 class HashMd5:
     def __init__(self,text):
@@ -60,6 +61,7 @@ class HashMd5:
 
         hashing = hashlib.md5()
         hashing.update(self.text[16:])
+
         result = hashing.hexdigest()
 
         return result
@@ -67,19 +69,20 @@ class HashMd5:
 
 if __name__ == '__main__':
     #md5 해시값
-    hash = "07f119b85cb7b1e3974f880d28ff6337"
+    hash = "c11b784f3b23fd5130f7e0754d6b2e34"
     hash = binascii.unhexlify(hash)
+    print(hash[0:16])
+    print()
     a = HashXor(hash)
-    data = "47b6af174bfc4dae7555bade985d1e5930b1db0639fb38be0977cdf7f13e73745d9da42d46c74194235c"
+    data = "fdb39984fa973e3054ea4777075d4543b29ad5a9a1b2782350eb4272714e3f42d3f5bccac3ce02656db46520581d0508c396a1b1d9bf10176eda7f555e7a017bfed891d4"
     data = binascii.unhexlify(data)
     print(data)
     data_len = len(data)
     decry = a.decrypt(data,data_len)
     print(decry)
-    test = [0 for i in range(100)]
-    for i in range(len(decry)):
-        test[i]=hex(decry[i])
-        print(test[i])
+    # test = [0 for i in range(1000)]
+    # for i in range(len(decry)):
+    #     test[i]=hex(decry[i])
+    # print(test)
 
-    #hash 받아서 [0:16] 은 헤더로 들어감 v = hash[0:16] -> HashXor(v)
-    #hash 받아서 나머지는 바디로 들어감
+
