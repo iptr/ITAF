@@ -11,7 +11,9 @@ class WtaProxyPacketMaker:
         self.wta_info = wta_info
         self.port_map = {}
         self.setWtaInfo()
-
+        print(self.target_port)
+        print(self.target_ip)
+        print(self.wta_info)
 
     def setWtaInfo(self):
         '''
@@ -32,8 +34,8 @@ class WtaProxyPacketMaker:
 
     def setHead(self):
         result = b''
-        MSG = b'WTAW'
-        UnKnown=bytes.fromhex("57")
+        MSG = b'WTA'
+        UnKnown=bytes.fromhex("18")
 
         result += bytes.fromhex("00") + bytes.fromhex("01")
         port_hex = hex(self.dbsafer_port).rstrip("L").lstrip("0x") or "0"
@@ -42,16 +44,14 @@ class WtaProxyPacketMaker:
         result += bytes.fromhex(port_hex)
         ip_list = self.target_ip.split(".")
 
-        result += MSG
+        result += MSG + UnKnown
         for i in range(len(ip_list)):
             print(hex(int(ip_list[i])))
             ip_hex = hex(int(ip_list[i])).rstrip("L").lstrip("0x") or "0"
             ip_hex = '0' * (2 - len(ip_hex)) + ip_hex
             print(ip_hex)
             result += bytes.fromhex(ip_hex)
-            if i < len(ip_list) - 1:
-                result += bytes.fromhex("2e")
-        result += UnKnown
+
         print(result)
         return result
 
@@ -70,9 +70,11 @@ class WtaProxyPacketMaker:
         # 5. ? (기본값 0)
         token = bytes.fromhex("20")
         final = bytes.fromhex("30")
+        #length = 0
         MSG = b"Login:"
         tt = b'17676'
-        UNKNOW1 = "0000004a60891896".encode()
+        UNKNOW1 = bytes.fromhex("0000004a60891896")
+        UNKNOW2 = bytes.fromhex("000000000000000000000000")
         print(UNKNOW1)
         login_id = self.login_id.encode()
 
@@ -80,7 +82,14 @@ class WtaProxyPacketMaker:
 
         service_port = str(self.target_port).encode()
 
-        self.result += MSG + token + login_id + token + tt + token + final
+        content = MSG + token + login_id + token + tt + token + final
+
+        length = len(content)
+        length = hex(length).rstrip("L").lstrip("0x") or "0"
+        length = '0' * (8 - len(length)) + length
+        length = bytes.fromhex(length)
+
+        self.result += UNKNOW1 + length + UNKNOW2 + content
 
         print(self.result)
 
@@ -108,3 +117,39 @@ class WtaProxyPacketMaker:
 
         return result
 
+    def startSignal(self):
+        result = bytes.fromhex("00") + bytes.fromhex("01")
+
+        return result
+
+    def getPort(self):
+        port_hex = hex(self.dbsafer_port).rstrip("L").lstrip("0x") or "0"
+        port_hex = '0' * (8 - len(port_hex)) + port_hex
+
+        result = bytes.fromhex(port_hex)
+
+        return result
+
+    def getIP(self):
+        MSG = b'WTA'
+        UnKnown=bytes.fromhex("57")
+        ip_list = self.target_ip.split(".")
+
+        result = MSG + UnKnown
+        for i in range(len(ip_list)):
+            print(hex(int(ip_list[i])))
+            ip_hex = hex(int(ip_list[i])).rstrip("L").lstrip("0x") or "0"
+            ip_hex = '0' * (2 - len(ip_hex)) + ip_hex
+            print(ip_hex)
+            result += bytes.fromhex(ip_hex)
+
+        return result
+
+    def dynamicPacketMaker(self,port):
+        result = b''
+        port_hex = hex(port).rstrip("L").lstrip("0x") or "0"
+        port_hex = '0' * (8 - len(port_hex)) + port_hex
+
+        result += bytes.fromhex(port_hex)
+
+        return result
