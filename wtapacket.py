@@ -47,8 +47,7 @@ class WtaPacketMaker:
         hash_result = hash_object.hashing()
         hash_result = bytes.fromhex(hash_result)
         packet = hash_result + self.result
-        print(packet)
-        print()
+
         self.hash_value = packet[:16]
 
         encrypt_objcet = hashxor.HashXor(packet)
@@ -65,8 +64,22 @@ class WtaPacketMaker:
 
         return result
 
+    def collectInfo(self,wta_info_socket):
+        wta_info = {}
+        wta_recv = wta_info_socket.recv(1000)
+        if len(wta_recv) != 0:
+            decrypt = self.decryptPacket(wta_recv).split(bytes.fromhex("0a"))
+            for i in range(len(decrypt)):
+                if decrypt[i].find(bytes.fromhex("3d")) != -1:
+                    token_result = decrypt[i].split(bytes.fromhex("3d"))
+                    wta_info[token_result[0]] = token_result[1]
+
+        return wta_info
+
 if __name__ == '__main__':
     w = WtaPacketMaker()
     w.makePacket(client_ip='192.168.3.221',client_port=3306,wta_proxy_port=3307,service_port=3308,service_ip="192.168.3.222")
     print(w.encryptPacket())
     print(w.decryptPacket(w.encryptPacket()))
+
+
