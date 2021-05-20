@@ -2,7 +2,7 @@ import os
 import socket as skt
 import multiprocessing as mp
 import threading
-import asyncio
+import sys
 from ipaddress import IPv4Network
 from glob import glob
 import binascii as ba
@@ -14,7 +14,7 @@ from commonlib import *
 
 PERF_TESTER_CONF = 'omsconf/perf_tester.conf'
 OMS_DMS_PORT = 50011
-MAX_RECV_SIZE = 4192
+MAX_RECV_SIZE = 8192
 SCENARIO_COLS_MIN = 3
 SCENARIO_COLS_MAX = 5
 
@@ -526,9 +526,9 @@ class OmsTester:
             socket
         '''
         TIME_OUT_SEC = int(self.gconf['CONF']['connect_timeout'])
-        AFTER_IDLE_SEC = 100
-        INTERVAL_SEC = 100
-        MAX_FAILS = 3
+        AFTER_IDLE_SEC = 1
+        INTERVAL_SEC = 1
+        MAX_FAILS = 1
         
         self.setVIP(nic, src_ip)
         sock = skt.socket(skt.AF_INET, skt.SOCK_STREAM)
@@ -667,7 +667,7 @@ class OmsTester:
         res = b''
         
         while True:
-            SIGN_EOF_SERVICE_RES = b'\x01?\xff\xff\x00\x00CK'
+            SIGN_EOF_SERVICE_RES = b'\xff\xff\x00\x00CK'
             SIGN_EOF_POLICY_RES = b'\x00\x1c\xff\xff\x00\x00CK'
             buf = sock.recv(MAX_RECV_SIZE)
             res += buf
@@ -675,7 +675,7 @@ class OmsTester:
             if step[1] in (self.maker.makeService0111Req,
                            self.maker.makeService0112Req):
                 # 서비스 목록 Payload 뒷쪽에 DATA END 시그널이 있는지 확인
-                if buf[-8:] == SIGN_EOF_SERVICE_RES or b'' == buf:
+                if buf[-6:] == SIGN_EOF_SERVICE_RES or b'' == buf:
                     break
                 
             elif step[1] == self.maker.makePolicyReq:
@@ -693,8 +693,7 @@ class OmsTester:
             return -1
 
         # 파싱된 응답값
-        ret = self.parser.readPayload(res, parse_msg=False)
-        return ret
+        return res
     
     def runScenario(self, cert, resq:mp.Queue, signal:mp.Value,
                     prepare_mode = True):
@@ -768,13 +767,12 @@ class OmsTester:
                         
                     cur_session = int(step[0])
                 
-                stime = time.time()
+                
                 # 패킷 작성 후 전송
                 payload = step[1]()
-                
+                stime = time.time()
                 try:
                     sock.send(payload)
-            
                 except Exception as e:
                     resq.put((self.shooter_id,
                                 'error',
@@ -783,7 +781,7 @@ class OmsTester:
                 
                 # 응답 수신
                 try:
-                    res = self.recvResponse(sock, step)
+                    ret = self.recvResponse(sock, step)
                 except Exception as e:
                     resq.put((self.shooter_id,
                               'error',
@@ -792,12 +790,13 @@ class OmsTester:
                 
                 # 시간 측정
                 lap_result['time'] += (time.time() - stime)
-                
+                res = self.parser.readPayload(ret, parse_msg=False)
                 if res[3] == 'Unknown Response Code':
                     print(self.scenario_name, cert[0], step[1], payload)
                 
                 # res값을 검증할지 저장할지 결정
                 if use_verify:
+                    
                     if False == prepare_mode:
                         result = self.verifyResData(step, res)
                         
@@ -841,7 +840,10 @@ class OmsTester:
                     if int(signal.value) > 0:
                         break
                     time.sleep(1)
-
+        try:
+            sock.close()
+        except:
+            pass
         # 최종결과 리턴
         resq.put((self.shooter_id, 'endres'))
         
@@ -856,7 +858,7 @@ class OmsTester:
            thread.start()
        
        while True:
-           if signal.value == 3 :
+           if signal.value == 3:
                break
            time.sleep(1)
        
@@ -883,16 +885,20 @@ def setShooters():
     proc_count = int(gconf['CONF']['proc_count'])
     thread_count = len(cert_id_list)
     
-    # 보안계정 목록 분배
+    if (len(scen_list) == 0 or 
+        int(proc_count) == 0 or 
+        int(len(cert_id_list) == 0)):
+        print('Scenario or Cert_ID have no data')
+        sys.exit(-1)
     
+    # 보안계정 목록 분배
     if (len(scen_list) * proc_count) >= int(len(cert_id_list)):
         # 시나리오 및 복제 개수 > 보안계정 개수 처리 = 보안계정 개수만큼 수행
         proc_count = 1
         scen_list = scen_list[:int(len(cert_id_list))]
     
     # 시나리오 및 개수 < 보안계정 개수 처리 = 보안계정을 나눔
-    cnt_per_scen = int(len(cert_id_list) / (len(scen_list) * proc_count))
-        
+    cnt_per_scen = int(len(cert_id_list) / (len(scen_list) * proc_count))        
         
     dist_cert_ids = divList(cert_id_list, cnt_per_scen)    
     

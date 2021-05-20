@@ -302,8 +302,8 @@ def connect(term, conf, server, use_nat_id=False, cert_id=None, dyport=None):
     테스트 수행에서 서비스에 접속하는 프로시저
     '''
     if True == use_nat_id and cert_id != None and dyport != None:
-        NatIdPkt = NatIdPkt()
-        NatIdPkt.set(svcnum = server[6],
+        natpkt = NatIdPkt()
+        natpkt.set(svcnum = server[6],
                     tgip = server[2],
                     tgport = int(server[3]),
                     cert_id = cert_id[0],
@@ -314,12 +314,12 @@ def connect(term, conf, server, use_nat_id=False, cert_id=None, dyport=None):
         
         temp = term.connect(server[1], conf.dbsafer_gw, dyport, 
                             server[4],server[5], ifc = conf.bind_interface,
-                            usenatid = True, NatIdPkt = NatIdPkt)
+                            usenatid = True, natidpkt = NatIdPkt)
     else:
         temp = term.connect(server[1], server[2], server[3], server[4], server[5],
                             ifc = conf.bind_interface,
                             usenatid = False,
-                            NatIdPkt = None)
+                            natidpkt = None)
     
     ret = dist_client(temp, conf)
     

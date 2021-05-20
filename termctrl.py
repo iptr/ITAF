@@ -6,8 +6,6 @@ import socket as skt
 import telnetlib as tl
 import ftplib as fl
 import paramiko as pm
-from taiflogger import *
-from dbctrl import *
 from commonlib import *
 
 class NatIdPkt:
@@ -169,7 +167,6 @@ class TermCtrl:
     server_list = {}
 
     def __init__(self):
-        self.lgr = Logger().getlogger("TermCtrl")
         self.conf = get_file_conf(CONF_PATH)
         cols = self.conf['Tables']['server_list_cols'].split(',')
         self.cols=[]
@@ -190,7 +187,7 @@ class TermCtrl:
             self.server_list['client'].append('None')
             
     def connect(self, proto, host, port, user, passwd, timeout=5, ifc=None, 
-                usenatid=False, NatIdPkt=None):
+                usenatid=False, natidpkt=None):
         """ SSH, Telnet, FTP 접속 후 해당 접속 객체를 리턴함
         Args:
             proto (str): Protocol 'ssh','sftp','TELNET','FTP'
@@ -228,16 +225,17 @@ class TermCtrl:
             sock = None
             if ifc != None:
                 sock = skt.socket(skt.AF_INET, skt.SOCK_STREAM)
-                sock.setsockopt(skt.SOL_SOCKET, skt.SO_BINDTODEVICE, (ifc+'\0').encode('utf8'))
+                sock.setsockopt(skt.SOL_SOCKET, skt.SO_BINDTODEVICE, 
+                                (ifc+'\0').encode('utf8'))
                 try:
                     sock.connect((host, int(port)))
                 except Exception as e:
                     print(e, host+':'+str(port))
                     return -3
-                if usenatid == True and NatIdPkt != None:
+                if usenatid == True and natidpkt != None:
                     skt_name = sock.getsockname()
-                    NatIdPkt.set(loport=skt_name[1])
-                    sock.send(NatIdPkt.payload)
+                    natidpkt.set(loport=skt_name[1])
+                    sock.send(natidpkt.payload)
             client = pm.SSHClient()
             client.set_missing_host_key_policy(pm.AutoAddPolicy())
             try:
@@ -246,7 +244,6 @@ class TermCtrl:
                                allow_agent=False, sock=sock,
                                banner_timeout=30, auth_timeout=30)
             except Exception as e:
-                self.lgr.error("Connect SSH : ",e)
                 print("Connect SSH : ", e)
                 return -41
 
@@ -338,7 +335,7 @@ class CMDRunner():
     """
     lgr = None
     def __init__(self):
-        self.lgr = Logger().getlogger("CMDRunner")
+        pass
 
     def run_cmd(self, client, cmd, expected_result=''):
         buf = ''
@@ -440,7 +437,6 @@ class FTRunner():
     localcwd = None
     
     def __init__(self):
-        self.lgr = Logger().getlogger('FTRunner')
         self.localcwd = os.getcwd()
 
     def get_file(self, client, dst_path, local_path=localcwd):

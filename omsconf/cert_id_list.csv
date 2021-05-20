@@ -1,1 +1,2 @@
 #Cert ID(0),Password(1),NIC Name(2),Private IP(3),Public IP(4),Target IP(5),Mac addr(6),Computer NAME[7],Nat Version[8],CPU info[9],mem Info[10],NIC_Count[11]
+#trollking,dbsafer00,eno2,10.0.0.123,[DBSAFER GW 주소(pnp_oms_dms)], 사용자 MAC 주소, 컴이름, 아무거나NAT버전 입력(str), Any (str), (int)8, (int)
