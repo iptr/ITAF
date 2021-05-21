@@ -1,19 +1,19 @@
 import hashxor
+import time
 
 class WtaProxyPacketMaker:
-    def __init__(self,wta_info,login_id):
+    def __init__(self,login_id,target_ip,wta_info={}):
         self.result = b''
         self.hash_value = b''
         self.login_id = login_id
+        self.target_ip = target_ip
         self.dbsafer_port = 0
-        self.target_ip = ''
         self.target_port = 0
         self.wta_info = wta_info
         self.port_map = {}
-        self.setWtaInfo()
-        print(self.target_port)
-        print(self.target_ip)
-        print(self.wta_info)
+        #self.setWtaInfo()
+        #print(self.target_ip)
+        #print(self.target_port)
 
     def setWtaInfo(self):
         '''
@@ -58,38 +58,47 @@ class WtaProxyPacketMaker:
 
     def makePacket(self):
         # wta_proxy_server 기준
-        # 01 (?) ~~~
-        # dbsafer PORT
-        # WTA ? IP (ex) 0a 4d a2 0b -> 10 77 162 11)
-        # hash
-        # body
-        # 1. 구분자 0x20
-        # 2. Login: ~~~~
-        # 3. IP
-        # 4. PORT
-        # 5. ? (기본값 0)
+        # 프로토콜 버전 (2 Byte) 00 01
+        # telnet SRC Port (4 Byte)
+        # 총 길이(4 Byte)
+        # 시간(4 Byte)
+        # 명령어 길이(4 Byte)
+        # 결과 길이(4 Byte)
+        # 이미지 길이(4 Byte)
+        # 델타 이미지 여부(4 Byte)
+        # 명령어
+            # Login: ~~~~
+            # IP
+        # 응답 값
+        # 이미지 데이터
         token = bytes.fromhex("20")
         final = bytes.fromhex("30")
         #length = 0
         MSG = b"Login:"
-        tt = b'17676'
-        UNKNOW1 = bytes.fromhex("0000004a60891896")
-        UNKNOW2 = bytes.fromhex("000000000000000000000000")
-        print(UNKNOW1)
+        rsp = b'17676'
+        current_time = hex(int(time.time())).encode()
+        result_len = bytes.fromhex("0000")
+        image_len = bytes.fromhex("0000")
+        delta_image_len = bytes.fromhex("0000")
+
         login_id = self.login_id.encode()
+        target_ip = self.target_ip
+        service_ip = target_ip.encode()
 
-        service_ip = self.target_ip.encode()
-
-        service_port = str(self.target_port).encode()
-
-        content = MSG + token + login_id + token + tt + token + final
+        content = MSG + token + login_id + token + service_ip + token + rsp + token + final
 
         length = len(content)
         length = hex(length).rstrip("L").lstrip("0x") or "0"
         length = '0' * (8 - len(length)) + length
         length = bytes.fromhex(length)
 
-        self.result += UNKNOW1 + length + UNKNOW2 + content
+        # 명령어 길이 + 헤더
+        total_length = len(content) + 24
+        total_length = hex(total_length).rstrip("L").lstrip("0x") or "0"
+        total_length = '0' * (8 - len(total_length)) + total_length
+        total_length = bytes.fromhex(total_length)
+
+        self.result += total_length + current_time + length + result_len + image_len + delta_image_len + content
 
         print(self.result)
 
