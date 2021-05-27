@@ -22,26 +22,23 @@ if sys.version_info >= (3, 5):
 
 # 기본 타임아웃 시간 설정
 socket.setdefaulttimeout(100)
+CONFPATH = 'conf/rdp_tester.conf'
 
 class Worker(multiprocessing.Process):
-
 	def __init__(self, num, connector, packets,
-				 timeout, repeat, sleep, verbose,
-				 callback, callback_arg,thread_count,wta_packet,que):
+				 conf, target_info,login_id,callback, callback_arg, wta_packet,que):
 		multiprocessing.Process.__init__(self)
 		self.num = num
 		self.connector = connector
 		self.packets = packets
-		self.timeout = timeout
-		self.repeat = repeat
-		self.sleep = sleep
-		self.verbose = verbose
+		self.conf = conf
+		self.target_info = target_info
+		self.login_id = login_id
 		self.callback = callback
 		self.callback_arg = callback_arg
 		self.cancelFlag = False
 		self.progressCallback = None
 		self.progressCallbackArg = None
-		self.thread_count = thread_count
 		self.wta_packet = wta_packet
 		self.q = que
 
@@ -57,13 +54,13 @@ class Worker(multiprocessing.Process):
 		thread_list = []
 
 		# 반복 횟수가 0 일경우
-		if self.repeat == 0:
+		if self.conf['REPEAT_COUNT'] == 0:
 				pass
 		# 반복 횟수가 지정되어 있을 경우
 		else:
-			for i in range(self.repeat):
+			for i in range(int(self.conf['REPEAT_COUNT'])):
 				# 쓰레드 생성
-				for j in range(self.thread_count):
+				for j in range(int(self.conf['THREAD_PER_PROC'])):
 					thread = threading.Thread(target=self.test)
 					thread_list.append(thread)
 				for j in thread_list:
@@ -111,24 +108,24 @@ class Worker(multiprocessing.Process):
 		flag = 0
 		packet = ''
 		# 패킷 길이 확인 및 전송
-		login_id='shyoon_test_1'
-		w = wtapacket.WtaPacketMaker()
-		wta_info = w.collectInfo(wta_info_socket)
-		wta_packet = wtaproxymaker.WtaProxyPacketMaker(wta_info, login_id)
+		#w = wtapacket.WtaPacketMaker()
+		#wta_info = w.collectInfo(wta_info_socket)
+
+		wta_packet = wtaproxymaker.WtaProxyPacketMaker(login_id=self.login_id,self.target_info[1])
 		wta_packet.makePacket()
 
 		port_data = telnet_socket.getpeername()[1]
-		packet_t = []
-		packet_t.append(wta_packet.startSignal())
-		packet_t.append(wta_packet.dynamicPacketMaker(port_data))
-		print("packeT!!")
-		packet_t.append(wta_packet.encryptPacket())
-		while pos < len(self.packets) or wta_pos < len(self.wta_packet) + len(packet_t) -1:
+
+		encry_wta_packet = []
+		encry_wta_packet.append(wta_packet.startSignal())
+		encry_wta_packet.append(wta_packet.dynamicPacketMaker(port_data))
+		encry_wta_packet.append(wta_packet.encryptPacket())
+
+		while pos < len(self.packets):
 			if pos < len(self.packets):
 				packet = self.packets[pos]
 			pos_end = pos + 1
 
-			#if wta_pos_end < len(self.wta_packet) + len(packet_t) - 1:
 			wta_pos_end = wta_pos + 1
 
 			while pos_end < len(self.packets):
@@ -140,7 +137,7 @@ class Worker(multiprocessing.Process):
 
 			try:
 				# 패킷 전송
-				self.send_packet(pos, pos_end, telnet_socket,wta_socket,wta_pos,wta_pos_end,flag,packet_t)
+				self.send_packet(pos, pos_end, telnet_socket,wta_socket,wta_pos,wta_pos_end,flag,encry_wta_packet)
 				flag = flag + 1
 			except socket.timeout:
 				print('T(%d/0)' % len(packet.packet), end=' ')
@@ -153,28 +150,17 @@ class Worker(multiprocessing.Process):
 			if self.cancelFlag:
 				break
 
-		if self.sleep != 0:
-			time.sleep(self.sleep)
+		if int(self.conf['SLEEP']) != 0:
+			time.sleep(int(self.conf['SLEEP']))
 
 		print("Session wait %d." % self.num)
 
 		self.callback(self.callback_arg)
 
-	def send_packet(self, pos, pos_end, telnet_socket, wta_socket, wta_pos, wta_pos_end,flag,packet_t):
+	def send_packet(self, pos, pos_end, telnet_socket, wta_socket, wta_pos, wta_pos_end, flag, encry_wta_packet):
 		'''
 		select를 이용하여 패킷 송수신을 담당하는 함수
 		'''
-
-		wta_stop_pos = len(self.wta_packet) + len(packet_t) -1
-		print(len(self.wta_packet), len(packet_t), wta_pos, wta_pos_end)
-
-		if wta_pos_end < wta_stop_pos:
-			print("WTA SEND")
-			if flag < 3:
-				wta_socket.send(packet_t[wta_pos])
-			else:
-				wta_socket.send(self.wta_packet[wta_pos-3].packet)
-
 		sendedPacket = 0
 		sended = 0
 		recvedPacket = 0
@@ -188,20 +174,8 @@ class Worker(multiprocessing.Process):
 			outputs = [telnet_socket,]
 
 		packetLen = pos_end - pos
-		print("ddd")
-		print(self.packets[pos + sendedPacket].packet)
-		print(len(self.packets))
-		# while sendedPacket < packetLen or recvedPacket < packetLen:
-		# 	print("whdgkq")
-		# 	print(sendedPacket)
-		# 	print(packetLen)
-		# 	print(recvedPacket)
-		# 	if sendedPacket < packetLen:
-		# 		outputs = [telnet_socket, ]
-		# 	else:
-		# 		outputs = []
 
-		(readable, writeable, exceptional) = select.select(inputs, outputs, inputs)
+		(readable, writeable, exceptional) = select.select(inputs, outputs, inputs,int(self.conf['SERVER_TIMEOUT']))
 
 		if not (readable or writeable or exceptional):
 			# timeout
@@ -241,18 +215,10 @@ class Worker(multiprocessing.Process):
 				r = r[compareSize:]
 
 		for s in writeable:
-			print(pos + sendedPacket)
-			packet = self.packets[pos + sendedPacket].packet
+			print(pos)
+			packet = self.packets[pos].packet
 			if sended == 0:
 				r = s.send(packet)
-
-
-				# if direction:
-				# 	r = terminal_sock.send(packet)
-				# else:
-				# 	r = terminal_sock.send(packet)
-				# 	wta_server_sock.send(packet)
-				# 	wta_manager_sock.send(packet)
 
 			else:
 				r = s.send(packet[sended:])
@@ -261,35 +227,51 @@ class Worker(multiprocessing.Process):
 				if len(packet) <= sended:
 					sended = 0
 					sendedPacket += 1
-					if self.sleep != 0:
-						time.sleep(self.sleep)
+					if int(self.conf['SLEEP']) != 0:
+						time.sleep(int(self.conf['SLEEP']))
 
+		wta_stop_pos = len(self.wta_packet) + len(encry_wta_packet) - 1
+		print(len(self.wta_packet), len(encry_wta_packet), wta_pos, wta_pos_end)
 
+		if wta_pos_end < wta_stop_pos:
+			print("WTA SEND")
+			if flag < 3:
+				wta_socket.send(encry_wta_packet[wta_pos])
+			else:
+				if wta_pos - 3 < 0:
+					pass
+				else:
+					wta_socket.send(self.wta_packet[wta_pos-3].packet)
 
-def runTest(process_count = 128, thread_count = 100):
-	datafile = 'packet_tester.txt'
-	datafile2 = 'packet_tester2.txt'
-	repeat = 1
-	time_out = 5
-	sleep_time = 0
-	verbose = False
+def runTest():
+	conf = commonlib.readConfFile(CONFPATH)
 
-	if not os.path.exists(datafile):
-		print('ERROR:', datafile, 'is not exist.')
-		sys.exit(-1)
+	packet_list = conf['PACKET_LIST_CSV']
+	packet_list = commonlib.getlistfromcsv(packet_list)
 
-	hexdata = commonlib.readFileLines(datafile)
-	packets = packetutil.PacketReader.read(hexdata)
+	wta_list = conf['WTA_PACKET_LIST_CSV']
+	wta_list = commonlib.getlistfromcsv(wta_list)
 
-	hexdata = commonlib.readFileLines(datafile2)
-	wta_packet = packetutil.PacketReader.read(hexdata)
+	target_list = conf['SERVER_LIST_CSV']
+	target_list = commonlib.getlistfromcsv(target_list)
 
-	totalTest = repeat * process_count
+	cert_list = conf['CERT_LIST_CSV']
+	cert_list = commonlib.getlistfromcsv(cert_list)
+
+	# 프로세스 개수와 타겟 개수가 1대1 매칭이 안될 경우
+	if len(target_list) != int(conf['SERVICE_COUNT']):
+		return
+
+	if len(packet_list) != int(conf['SERVICE_COUNT']):
+		return
+
+	if len(wta_list) != int(conf['SERVICE_COUNT']):
+		return
+
 	curCount = 0
 
 	def callback(arg):
 		arg[0] = arg[0] + 1
-		print('%d/%d' % (totalTest, arg[0]), end=' ')
 
 	callback_arg = [curCount]
 
@@ -297,19 +279,29 @@ def runTest(process_count = 128, thread_count = 100):
 
 	process_list = []
 
+	wta_info = []
+	wta_proxy_info = []
+
+	wta_info.append(conf['WTA_IP'])
+	wta_info.append(conf['WTA_PORT'])
+
+	wta_proxy_info.append(conf['WTA_PROXY_IP'])
+	wta_proxy_info.append(conf['WTA_PROXY_PORT'])
+
 	q = Queue()
-	connected = []
-	# for i in range(process_count):
-	# 	connector = packetutil.VirtualConnector(3389+i, "192.168.4.190", 4095+i)
-	# 	connected.append(connector)
 
+	for i in range(int(conf['SERVICE_COUNT'])):
+		hexdata = commonlib.readFileLines((str(''.join(packet_list[i]))))
+		packets = packetutil.PacketReader.read(hexdata)
 
+		hexdata = commonlib.readFileLines((str(''.join(wta_list[i]))))
+		wta_packet = packetutil.PacketReader.read(hexdata)
 
-	for i in range(process_count):
-		connecte = packetutil.VirtualServer(3389 + i, "192.168.4.190", 4101 + i)
+		login_id = cert_list[i][0]
+
+		connecte = packetutil.VirtualServer(service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], wta_info=wta_info,wta_proxy_info=wta_proxy_info)
 		process_list.append(Worker(i + 1, connecte, packets,
-							  time_out, repeat, sleep_time, verbose,
-							  callback, callback_arg,thread_count,wta_packet,q))
+							  conf, target_list[i],login_id,callback, callback_arg, wta_packet,q))
 
 	for i in process_list:
 		print('process starting : ', i.num)
@@ -325,7 +317,6 @@ def runTest(process_count = 128, thread_count = 100):
 	print('Done. [%02d:%02d:%02.2d]' % (int(elapsed_time) / 60 / 60, int(elapsed_time) / 60 % 60, elapsed_time % 60))
 
 if __name__ == '__main__':
-	#cProfile.run("runTest(1,2)")
-	runTest(1,1)
+	runTest()
 
 
