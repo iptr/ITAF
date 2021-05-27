@@ -406,7 +406,7 @@ def resizeWindow(title = "",x_size=600,y_size=800):
         # 해당 타이틀에 해당하는 객체 선택
         win = pyautogui.getWindowsWithTitle(title)[0]
         # 해당 객체 크기 변경
-        win.resize(x_size,y_size)
+        win.resizeTo(x_size,y_size)
     except Exception as e:
         print("size 실패!!")
         return False
@@ -430,7 +430,7 @@ def moveWindow(title = "",x_pos = 0, y_pos = 0):
         # 해당 타이틀에 해당하는 객체 선택
         win = pyautogui.getWindowsWithTitle(title)[0]
         # 해당 객체 이동
-        win.moveTo(x_pos,y_pos)
+        win.move(x_pos,y_pos)
     except Exception as e:
         print("size 실패!!")
         return False
