@@ -113,14 +113,18 @@ class Worker(multiprocessing.Process):
     def cancel(self):
         self.cancelFlag = True
 
-    def test(self,j):
+    def test(self):
         '''
         패킷 테스트 하는 함수
         '''
         if self.cancelFlag:
             self.callback(self.callback_arg)
             return
-        dbms_sock = self.dbms_sock_object.dbModeConnect(512)
+
+        type = self.target_list[0]
+        type = packetutil.NATIDPKT.getTypeNumber(type)
+
+        dbms_sock = self.dbms_sock_object.dbModeConnect(type)
         self.q.put(dbms_sock)
 
         while True:
