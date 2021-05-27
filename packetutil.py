@@ -83,7 +83,8 @@ class NATIDPKT:
         print(self.payload)
         return self.payload
 
-    def getTypeNumber(self,type):
+    @staticmethod
+    def getTypeNumber(type):
         type = type.lower()
 
         type_num = -1
@@ -314,11 +315,12 @@ class VirtualConnector:
             nat =NATIDPKT()
             telnet_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             telnet_socket.connect((self.dbsafer_ip, self.dbsafer_port))
-            telnet_socket.send(nat.set(svcnum=self.svcnum,svctype=4,tgip=self.target_ip,tgport=self.service_port,gwport=self.dbsafer_port,gwip=self.dbsafer_ip,certid=self.cert_info_list[0],loip=self.cert_info_list[2],loport=telnet_socket.getsockname()[1],progname=self.cert_info_list[1]))
+            telnet_socket.send(nat.set(svcnum=self.svcnum,svctype=4,tgip=self.target_ip,tgport=self.service_port,gwport=self.dbsafer_port,gwip=self.dbsafer_ip,certid=self.cert_info_list[0],loip=self.cert_info_list[1],loport=telnet_socket.getsockname()[1]))
             # 필수정보 교체: 대상서비스번호, 대상IP, port, 로컬IP, 로컬port, dbsIP, dbsport,
             #               보안계정)))
 
             return (telnet_socket)
+
         except Exception as e:
             print("Session Error")
             print(e)
