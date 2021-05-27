@@ -76,10 +76,10 @@ class WtaProxyPacketMaker:
         #length = 0
         MSG = b"Login:"
         rsp = b'17676'
-        current_time = hex(int(time.time())).encode()
-        result_len = bytes.fromhex("0000")
-        image_len = bytes.fromhex("0000")
-        delta_image_len = bytes.fromhex("0000")
+        current_time = bytes.fromhex("12345678")
+        result_len = bytes.fromhex("00000000")
+        image_len = bytes.fromhex("00000000")
+        delta_image_len = bytes.fromhex("00000000")
 
         login_id = self.login_id.encode()
         target_ip = self.target_ip
