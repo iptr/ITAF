@@ -299,7 +299,7 @@ class VirtualConnector:
             nat = NATIDPKT()
             service_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             service_sock.connect((self.dbsafer_ip, self.dbsafer_port))
-            service_sock.send(nat.set(svcnum=self.svcnum,svctype=type,tgip=self.target_ip,tgport=self.service_port,gwport=self.dbsafer_port,gwip=self.dbsafer_ip,certid="shyoon",loip=service_sock.getsockname()[0],loport=service_sock.getsockname()[1]))
+            service_sock.send(nat.set(svcnum=self.svcnum,svctype=type,tgip=self.target_ip,tgport=self.service_port,gwport=self.dbsafer_port,gwip=self.dbsafer_ip,certid=self.cert_info_list[0],loip=self.cert_info_list[2],loport=service_sock.getsockname()[1],progname=self.cert_info_list[1]))
 
             return (service_sock)
         except Exception as e:
