@@ -17,6 +17,7 @@ if sys.version_info >= (3, 5):
 
 # 기본 타임아웃 시간 설정
 #socket.setdefaulttimeout(100)
+CONFPATH = 'conf/dbms_tester.conf'
 
 class Worker(multiprocessing.Process):
 
@@ -213,7 +214,8 @@ class Worker(multiprocessing.Process):
 class DbmsSever:
     def __init__(self):
         pass
-    def run():
+
+    def run(self):
         conf = commonlib.readConfFile(CONFPATH)
 
         packet_list = conf['PACKET_LIST_CSV']
