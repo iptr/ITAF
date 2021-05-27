@@ -8,44 +8,50 @@ import commonlib
 import select
 import asyncio
 import packetutil
+from multiprocessing import Queue
 
-socket.setdefaulttimeout(100)
+socket.setdefaulttimeout(10)
+CONFPATH = 'conf/rdp_tester.conf'
 
 class rdpServer:
-	def __init__(self,service_port):
-		self.service_port = service_port
+	def __init__(self):
+		pass
 
-	def run(self,process_count = 1, thread_count = 1):
-		datafile = 'packet_tester.txt'
-		repeat = 1
-		time_out = 5
-		sleep_time = 0
-		verbose = False
+	def run(self):
+		conf = commonlib.readConfFile(CONFPATH)
 
-		if not os.path.exists(datafile):
-			print('ERROR:', datafile, 'is not exist.')
-			sys.exit(-1)
+		packet_list = conf['PACKET_LIST_CSV']
+		packet_list = commonlib.getlistfromcsv(packet_list)
 
-		hexdata = commonlib.readFileLines(datafile)
-		packets = packetutil.PacketReader.read(hexdata)
+		target_list = conf['SERVER_LIST_CSV']
+		target_list = commonlib.getlistfromcsv(target_list)
 
-		totalTest = repeat * process_count
+		cert_info_list = conf['CERT_LIST_CSV']
+		cert_info_list = commonlib.getlistfromcsv(cert_info_list)
+
+		# 프로세스 개수와 타겟 개수가 1대1 매칭이 안될 경우
+		if len(target_list) != int(conf['SERVICE_COUNT']):
+			return
+
+		if len(packet_list) != int(conf['SERVICE_COUNT']):
+			return
+
 		curCount = 0
 
 		def callback(arg):
 			arg[0] = arg[0] + 1
-			print('%d/%d' % (totalTest, arg[0]), end=' ')
 
 		callback_arg = [curCount]
 
 		process_list = []
 
-
-		for i in range(process_count):
-			terminal_sock_object = packetutil.VirtualConnector(self.service_port + i, "192.168.4.190", 4101 + i)
+		q = Queue()
+		for i in range(int(conf['SERVICE_COUNT'])):
+			hexdata = commonlib.readFileLines(str(''.join(packet_list[i])))
+			packets = packetutil.PacketReader.read(hexdata)
+			terminal_sock_object = packetutil.VirtualConnector(target_ip=str(target_list[i][1]),service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], dbsafer_port=int(conf['DYNAMIC_PORT']),svcnum=0,cert_info_list=cert_info_list[i])
 			process_list.append(Worker(i + 1,  terminal_sock_object,packets,
-									   time_out, repeat, sleep_time, verbose,
-									   callback, callback_arg, thread_count))
+									  conf, target_list[i],callback, callback_arg, q))
 
 		for i in process_list:
 			print('process starting : ', i.num)
@@ -56,22 +62,19 @@ class rdpServer:
 
 class Worker(multiprocessing.Process):
 	def __init__(self, num, terminal_sock_object,packets,
-				 timeout, repeat, sleep, verbose,
-				 callback, callback_arg,thread_count):
+				 conf, target_list, callback, callback_arg,q):
 		multiprocessing.Process.__init__(self)
 		self.num = num
 		self.terminal_sock_object = terminal_sock_object
 		self.packets = packets
-		self.timeout = timeout
-		self.repeat = repeat
-		self.sleep = sleep
-		self.verbose = verbose
+		self.conf = conf
+		self.target_list = target_list
 		self.callback = callback
 		self.callback_arg = callback_arg
 		self.cancelFlag = False
 		self.progressCallback = None
 		self.progressCallbackArg = None
-		self.thread_count = thread_count
+		self.q = q
 
 	def run(self):
 		'''
@@ -81,13 +84,13 @@ class Worker(multiprocessing.Process):
 		thread_list = []
 
 		# 반복 횟수가 0 일경우
-		if self.repeat == 0:
+		if self.conf['REPEAT_COUNT'] == 0:
 			pass
 		# 반복 횟수가 지정되어 있을 경우
 		else:
-			for i in range(self.repeat):
+			for i in range(int(self.conf['REPEAT_COUNT'])):
 				# 쓰레드 생성
-				for j in range(self.thread_count):
+				for j in range(int(self.conf['THREAD_PER_PROC'])):
 					thread = threading.Thread(target=self.test)
 					thread_list.append(thread)
 				for j in thread_list:
@@ -118,6 +121,7 @@ class Worker(multiprocessing.Process):
 		packet = ''
 
 		terminal_sock = self.terminal_sock_object.rdpModeConnect()
+		self.q.put(terminal_sock)
 
 		# 패킷 길이 확인 및 전송
 		while pos < len(self.packets):
@@ -143,8 +147,8 @@ class Worker(multiprocessing.Process):
 			if self.cancelFlag:
 				break
 
-		if self.sleep != 0:
-			time.sleep(self.sleep)
+		if int(self.conf['SLEEP']) != 0:
+			time.sleep(int(self.conf['SLEEP']))
 
 		print("Session wait %d." % self.num)
 		self.callback(self.callback_arg)
@@ -163,20 +167,9 @@ class Worker(multiprocessing.Process):
 			outputs = []
 
 		packetLen = pos_end - pos
-		print("ddd")
-		print(self.packets[pos+sendedPacket].packet)
-		print(len(self.packets))
-		# while sendedPacket < packetLen or recvedPacket < packetLen:
-		# 	print("whdgkq")
-		# 	print(sendedPacket)
-		# 	print(packetLen)
-		# 	print(recvedPacket)
-		# 	if sendedPacket < packetLen:
-		# 		outputs = [terminal_sock, ]
-		# 	else:
-		# 		outputs = []
 
-		(readable, writeable, exceptional) = select.select(inputs,outputs,inputs)
+
+		(readable, writeable, exceptional) = select.select(inputs,outputs,inputs,int(self.conf['CLIENT_TIMEOUT']))
 
 		if not (readable or writeable or exceptional):
 			# timeout
@@ -220,15 +213,6 @@ class Worker(multiprocessing.Process):
 			packet = self.packets[pos + sendedPacket].packet
 			if sended == 0:
 				r = s.send(packet)
-
-
-				# if direction:
-				# 	r = terminal_sock.send(packet)
-				# else:
-				# 	r = terminal_sock.send(packet)
-				# 	wta_server_sock.send(packet)
-				# 	wta_manager_sock.send(packet)
-
 			else:
 				r = s.send(packet[sended:])
 			if r > 0:
@@ -236,10 +220,11 @@ class Worker(multiprocessing.Process):
 				if len(packet) <= sended:
 					sended = 0
 					sendedPacket += 1
-					if self.sleep != 0:
-						time.sleep(self.sleep)
+					if int(self.conf['SLEEP']) != 0:
+						time.sleep(int(self.conf['SLEEP']))
+
 if __name__ == '__main__':
-	abc = rdpServer(3389)
+	abc = rdpServer()
 	abc.run()
 
 
