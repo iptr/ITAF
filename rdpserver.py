@@ -111,7 +111,7 @@ class Worker(multiprocessing.Process):
         #w = wtapacket.WtaPacketMaker()
         #wta_info = w.collectInfo(wta_info_socket)
 
-        wta_packet = wtaproxymaker.WtaProxyPacketMaker(login_id=self.login_id,self.target_info[1])
+        wta_packet = wtaproxymaker.WtaProxyPacketMaker(login_id=self.login_id,target_ip=self.target_info[1])
         wta_packet.makePacket()
 
         port_data = telnet_socket.getpeername()[1]
@@ -246,7 +246,8 @@ class Worker(multiprocessing.Process):
 class RdpServer:
     def __init__(self):
         pass
-    def run():
+
+    def run(self):
         conf = commonlib.readConfFile(CONFPATH)
 
         packet_list = conf['PACKET_LIST_CSV']
