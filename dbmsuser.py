@@ -6,73 +6,77 @@ import time
 import sys
 import commonlib
 import select
-import asyncio
 import packetutil
 from multiprocessing import Process, Lock, Queue
 
 socket.setdefaulttimeout(10)
+CONFPATH = "conf/dbms_tester.conf"
 
 class DbmsUser:
-    def __init__(self,service_port):
-        self.service_port = service_port
+    def __init__(self):
+        pass
 
-    def run(self,process_count = 30, thread_count = 300):
-        datafile = 'db_test.txt'
-        repeat = 1
-        time_out = 5
-        sleep_time = 0
-        verbose = False
+    def run(self):
+        conf = commonlib.readConfFile(CONFPATH)
 
-        if not os.path.exists(datafile):
-            print('ERROR:', datafile, 'is not exist.')
-            sys.exit(-1)
+        packet_list = conf['PACKET_LIST_CSV']
+        packet_list = commonlib.getlistfromcsv(packet_list)
 
-        hexdata = commonlib.readFileLines(datafile)
-        packets = packetutil.PacketReader.read(hexdata)
+        target_list = conf['SERVER_LIST_CSV']
+        target_list = commonlib.getlistfromcsv(target_list)
 
-        totalTest = repeat * process_count
+        cert_info_list = conf['CERT_LIST_CSV']
+        cert_info_list = commonlib.getlistfromcsv(cert_info_list)
+
+        # 프로세스 개수와 타겟 개수가 1대1 매칭이 안될 경우
+        if len(target_list) != int(conf['SERVICE_COUNT']):
+            return
+
+        if len(packet_list) != int(conf['SERVICE_COUNT']):
+            return
+
+        process_count = int(conf['SERVICE_COUNT'])
+
         curCount = 0
 
         def callback(arg):
             arg[0] = arg[0] + 1
-            print('%d/%d' % (totalTest, arg[0]), end=' ')
 
         callback_arg = [curCount]
-
+        start_time = time.time()
         process_list = []
-
         q = Queue()
         for i in range(process_count):
-            dbms_sock_object = packetutil.VirtualConnector(self.service_port + i, "192.168.4.87", 3970)
+            hexdata = commonlib.readFileLines(str(''.join(packet_list[i])))
+            packets = packetutil.PacketReader.read(hexdata)
+            dbms_sock_object = packetutil.VirtualConnector(target_ip=str(target_list[i][1]),service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], dbsafer_port=int(conf['DYNAMIC_PORT']),svcnum=int(target_list[i][3]),cert_info_list=cert_info_list[i])
             process_list.append(Worker(i + 1,  dbms_sock_object,packets,
-                                       time_out, repeat, sleep_time, verbose,
-                                       callback, callback_arg, thread_count,q))
-
+                                      conf, target_list[i],callback, callback_arg, q))
         for i in process_list:
             print('process starting : ', i.num)
             i.start()
         for i in process_list:
             i.join()
             print('process joined.', i.num)
+        elapsed_time = time.time() - start_time
+        print('\n')
+        print(
+            'Done. [%02d:%02d:%02.2d]' % (int(elapsed_time) / 60 / 60, int(elapsed_time) / 60 % 60, elapsed_time % 60))
 
 class Worker(multiprocessing.Process):
     def __init__(self, num, dbms_sock_object, packets,
-                 timeout, repeat, sleep, verbose,
-                 callback, callback_arg, thread_count,q):
+                 conf, target_list,callback, callback_arg, q):
         multiprocessing.Process.__init__(self)
         self.num = num
         self.dbms_sock_object = dbms_sock_object
         self.packets = packets
-        self.timeout = timeout
-        self.repeat = repeat
-        self.sleep = sleep
-        self.verbose = verbose
+        self.conf = conf
+        self.target_list = target_list
         self.callback = callback
         self.callback_arg = callback_arg
         self.cancelFlag = False
         self.progressCallback = None
         self.progressCallbackArg = None
-        self.thread_count = thread_count
         self.q = q
 
     def run(self):
@@ -80,16 +84,17 @@ class Worker(multiprocessing.Process):
         시작 하는 함수
 
         '''
+
         thread_list = []
 
         # 반복 횟수가 0 일경우
-        if self.repeat == 0:
+        if self.conf['REPEAT_COUNT'] == 0:
             pass
         # 반복 횟수가 지정되어 있을 경우
         else:
-            for i in range(self.repeat):
+            for i in range(int(self.conf['REPEAT_COUNT'])):
                 # 쓰레드 생성
-                for j in range(self.thread_count):
+                for j in range(int(self.conf['THREAD_PER_PROC'])):
                     thread = threading.Thread(target=self.test)
                     thread_list.append(thread)
                 for j in thread_list:
@@ -108,7 +113,7 @@ class Worker(multiprocessing.Process):
     def cancel(self):
         self.cancelFlag = True
 
-    def test(self):
+    def test(self,j):
         '''
         패킷 테스트 하는 함수
         '''
@@ -118,41 +123,40 @@ class Worker(multiprocessing.Process):
         dbms_sock = self.dbms_sock_object.dbModeConnect(512)
         self.q.put(dbms_sock)
 
-        pos = 0
-        packet = ''
-        # 패킷 길이 확인 및 전송
-        while pos < len(self.packets):
-            if pos < len(self.packets):
-                packet = self.packets[pos]
-            pos_end = pos + 1
+        while True:
+            pos = 0
+            packet = ''
+            # 패킷 길이 확인 및 전송
+            while pos < len(self.packets):
+                if pos < len(self.packets):
+                    packet = self.packets[pos]
+                pos_end = pos + 1
 
-            while pos_end < len(self.packets):
-                packet2 = self.packets[pos_end]
-                if packet.direction != packet2.direction:
+                while pos_end < len(self.packets):
+                    packet2 = self.packets[pos_end]
+                    if packet.direction != packet2.direction:
+                        break
+                    pos_end += 1
+                try:
+                    # 패킷 전송
+                    self.send_packet(pos, pos_end, dbms_sock)
+
+                except socket.timeout:
+                    print('T(%d/0)' % len(packet.packet), end=' ')
+                    sys.stdout.flush()
+                if self.progressCallback:
+                    self.progressCallback(self.progressCallbackArg, pos_end - pos)
+                pos = pos_end
+
+                if self.cancelFlag:
                     break
-                pos_end += 1
-            try:
-                # 패킷 전송
-                self.send_packet(pos, pos_end, dbms_sock)
-                time.sleep(0.3)
 
-            except socket.timeout:
-                print('T(%d/0)' % len(packet.packet), end=' ')
-                sys.stdout.flush()
-            if self.progressCallback:
-                self.progressCallback(self.progressCallbackArg, pos_end - pos)
-            pos = pos_end
+            if int(self.conf['SLEEP']) != 0:
+                time.sleep(int(self.conf['SLEEP']))
 
-            if self.cancelFlag:
-                break
-
-        if dbms_sock:
-            dbms_sock.close()
-        if self.sleep != 0:
-            time.sleep(self.sleep)
+            self.callback(self.callback_arg)
 
         print("Session wait %d." % self.num)
-        self.callback(self.callback_arg)
 
     def send_packet(self, pos, pos_end, dbms_sock):
         try:
@@ -221,12 +225,12 @@ class Worker(multiprocessing.Process):
                     if len(packet) <= sended:
                         sended = 0
                         sendedPacket += 1
-                        if self.sleep != 0:
-                            time.sleep(self.sleep)
+                        if int(self.conf['SLEEP']) != 0:
+                            time.sleep(int(self.conf['SLEEP']))
 
         except Exception as e:
             print("error")
 
 if __name__ == '__main__':
-    abc = DbmsUser(3306)
+    abc = DbmsUser()
     abc.run()
