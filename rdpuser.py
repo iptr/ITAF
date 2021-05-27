@@ -13,7 +13,7 @@ from multiprocessing import Queue
 socket.setdefaulttimeout(10)
 CONFPATH = 'conf/rdp_tester.conf'
 
-class rdpServer:
+class rdpUser:
 	def __init__(self):
 		pass
 
@@ -49,7 +49,7 @@ class rdpServer:
 		for i in range(int(conf['SERVICE_COUNT'])):
 			hexdata = commonlib.readFileLines(str(''.join(packet_list[i])))
 			packets = packetutil.PacketReader.read(hexdata)
-			terminal_sock_object = packetutil.VirtualConnector(target_ip=str(target_list[i][1]),service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], dbsafer_port=int(conf['DYNAMIC_PORT']),svcnum=0,cert_info_list=cert_info_list[i])
+			terminal_sock_object = packetutil.VirtualConnector(target_ip=str(target_list[i][1]),service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], dbsafer_port=int(conf['DYNAMIC_PORT']),svcnum=int(target_list[i][3]),cert_info_list=cert_info_list[i])
 			process_list.append(Worker(i + 1,  terminal_sock_object,packets,
 									  conf, target_list[i],callback, callback_arg, q))
 
@@ -224,7 +224,7 @@ class Worker(multiprocessing.Process):
 						time.sleep(int(self.conf['SLEEP']))
 
 if __name__ == '__main__':
-	abc = rdpServer()
+	abc = rdpUser()
 	abc.run()
 
 
