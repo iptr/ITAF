@@ -2,9 +2,9 @@
 import time
 import copy
 import random
+import pymysql as mysql
 import multiprocessing as mp
 from termctrl import *
-from dbctrl import *
 from commonlib import *
 
 CONF_FILE = 'conf/term_tester.conf'
@@ -197,12 +197,13 @@ def set_nat_identity(conf, server_list):
         svc_code = -1
         return -1
 
-    dbc = DBCtrl()
-    dbc.connect(host = conf.dbsafer_log,
+    dbc = mysql.connect(host = conf.dbsafer_log,
                 port = MYSQL_PORT,
                 user = conf.dbsafer_dbid,
                 passwd = conf.dbsafer_dbpw,
                 db='dbsafer3')
+    
+    cur = dbc.cursor()
     
     if conf.chk_svcnum:
         select_svcnum_query = ('select no from '
@@ -212,8 +213,8 @@ def set_nat_identity(conf, server_list):
         print("Waiting for getting service number from the DBSAFER")
 
         for sl in server_list:
-            dbc.cur.execute(select_svcnum_query%(svc_code, sl[2], sl[3]))
-            for dbsvc in dbc.cur.fetchall():
+            cur.execute(select_svcnum_query%(svc_code, sl[2], sl[3]))
+            for dbsvc in cur.fetchall():
                 #서버리스트 마지막 컬럼에 서비스 번호 입력
                 sl[6] = dbsvc[0]
                 avail_server_list.append(sl)
@@ -263,19 +264,19 @@ def set_nat_identity(conf, server_list):
     oms_ip_list = []
     
     # oms_access 테이블 select 쿼리
-    dbc.cur.execute(oms_select_query)
+    cur.execute(oms_select_query)
     
-    for line in dbc.cur.fetchall():
+    for line in cur.fetchall():
         oms_ip_list.append(list(line))
         
     for cert_id in cert_id_list:
         add_oms_flag = True
         
         # dbsafer_ldap_list의 로그인 컬럼 업데이트
-        dbc.cur.execute(login_update_query%cert_id[0])
+        cur.execute(login_update_query%cert_id[0])
         
         # dbsafer_ldap_list의 ipaddr 컬럼 업데이트
-        dbc.cur.execute(ldap_ip_update_query%(cert_id[1],cert_id[0]))
+        cur.execute(ldap_ip_update_query%(cert_id[1],cert_id[0]))
         
         for line in oms_ip_list:
             # line : oms_access ip, unikey list 
@@ -291,9 +292,9 @@ def set_nat_identity(conf, server_list):
                     '9.9.99.9T', 'TrollkingsTester',
                     'AMD rather than Intel!', '8192GB',cert_id[0],
                     1, conf.dbsafer_gw, nowt, hash)
-            dbc.cur.execute(oms_insert_query%values)
+            cur.execute(oms_insert_query%values)
             
-    dbc.db.commit()
+    dbc.commit()
     
     return avail_server_list, cert_id_list
 
@@ -304,17 +305,16 @@ def connect(term, conf, server, use_nat_id=False, cert_id=None, dyport=None):
     if True == use_nat_id and cert_id != None and dyport != None:
         natpkt = NatIdPkt()
         natpkt.set(svcnum = server[6],
-                    tgip = server[2],
-                    tgport = int(server[3]),
-                    cert_id = cert_id[0],
-                    gwip = conf.dbsafer_gw,
-                    gwport = dyport,
-                    loip = cert_id[1]
-                    )
+                   tgip = server[2],
+                   tgport = int(server[3]),
+                   cert_id = cert_id[0],
+                   gwip = conf.dbsafer_gw,
+                   gwport = dyport,
+                   loip = cert_id[1])
         
         temp = term.connect(server[1], conf.dbsafer_gw, dyport, 
                             server[4],server[5], ifc = conf.bind_interface,
-                            usenatid = True, natidpkt = NatIdPkt)
+                            usenatid = True, natidpkt = natpkt)
     else:
         temp = term.connect(server[1], server[2], server[3], server[4], server[5],
                             ifc = conf.bind_interface,
