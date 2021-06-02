@@ -21,12 +21,13 @@ socket.setdefaulttimeout(3)
 
 class Worker(multiprocessing.Process):
 
-    def __init__(self, num, connector, packets,
+    def __init__(self, num, connector, server,packets,
                  timeout, repeat, sleep, verbose,
                  callback, callback_arg, thread_count, que):
         multiprocessing.Process.__init__(self)
         self.num = num
         self.connector = connector
+        self.server = server
         self.packets = packets
         self.timeout = timeout
         self.repeat = repeat
@@ -101,7 +102,9 @@ class Worker(multiprocessing.Process):
         try:
             print("Connecting %d..." % self.num)
             # 각 세션 소켓 반환
-            (db_sock, service_sock) = await self.connector.dbModeConnect()
+
+            db_sock = self.server.dbmsModeServer()
+            (service_sock) = self.connector.dbModeConnect(512)
             try:
                 self.q.put(db_sock)
                 self.q.put(service_sock)
@@ -247,7 +250,7 @@ def runTest(process_count=128, thread_count=100):
     hexdata = commonlib.readFileLines(datafile)
     packets = packetutil.PacketReader.read(hexdata)
 
-    connector = packetutil.VirtualConnector(1434,"192.168.4.87", 4554)
+
 
     totalTest = repeat * process_count
     curCount = 0
@@ -265,7 +268,9 @@ def runTest(process_count=128, thread_count=100):
     process_queue = Queue()
 
     for i in range(process_count):
-        process_list.append(Worker(i + 1, connector, packets,
+        server = packetutil.VirtualServer(3306+i, "192.168.4.87", 3970,1)
+        connector = packetutil.VirtualConnector(3306+i, "192.168.4.87", 3970)
+        process_list.append(Worker(i + 1, connector,server, packets,
                                    time_out, repeat, sleep_time, verbose,
                                    callback, callback_arg, thread_count,  process_queue))
 
@@ -285,4 +290,4 @@ def runTest(process_count=128, thread_count=100):
 
 if __name__ == '__main__':
     # cProfile.run("runTest(1,2)")
-    runTest(128, 100)
+    runTest(30, 10)

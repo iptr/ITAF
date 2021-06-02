@@ -30,11 +30,14 @@ class rdpUser:
 		cert_info_list = commonlib.getlistfromcsv(cert_info_list)
 
 		# 프로세스 개수와 타겟 개수가 1대1 매칭이 안될 경우
-		if len(target_list) != int(conf['SERVICE_COUNT']):
-			return
-
-		if len(packet_list) != int(conf['SERVICE_COUNT']):
-			return
+		# if len(target_list) != int(conf['SERVICE_COUNT']):
+		# 	return
+		#
+		# if len(packet_list) != int(conf['SERVICE_COUNT']):
+		# 	return
+		#
+		# if len(cert_info_list) != int(conf['THREAD_PER_PROC']):
+		# 	return
 
 		curCount = 0
 
@@ -49,9 +52,9 @@ class rdpUser:
 		for i in range(int(conf['SERVICE_COUNT'])):
 			hexdata = commonlib.readFileLines(str(''.join(packet_list[i])))
 			packets = packetutil.PacketReader.read(hexdata)
-			terminal_sock_object = packetutil.VirtualConnector(target_ip=str(target_list[i][1]),service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], dbsafer_port=int(conf['DYNAMIC_PORT']),svcnum=int(target_list[i][3]),cert_info_list=cert_info_list[i])
+			terminal_sock_object = packetutil.VirtualConnector(target_ip=str(target_list[i][1]),service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], dbsafer_port=int(conf['DYNAMIC_PORT']),svcnum=int(target_list[i][3]),interface=conf['BIND_INTERFACE'])
 			process_list.append(Worker(i + 1,  terminal_sock_object,packets,
-									  conf, target_list[i],callback, callback_arg, q))
+									  conf, target_list[i],cert_info_list,callback, callback_arg, q))
 
 		for i in process_list:
 			print('process starting : ', i.num)
@@ -62,13 +65,14 @@ class rdpUser:
 
 class Worker(multiprocessing.Process):
 	def __init__(self, num, terminal_sock_object,packets,
-				 conf, target_list, callback, callback_arg,q):
+				 conf, target_list,cert_info_list, callback, callback_arg,q):
 		multiprocessing.Process.__init__(self)
 		self.num = num
 		self.terminal_sock_object = terminal_sock_object
 		self.packets = packets
 		self.conf = conf
 		self.target_list = target_list
+		self.cert_info_list = cert_info_list
 		self.callback = callback
 		self.callback_arg = callback_arg
 		self.cancelFlag = False
@@ -91,7 +95,7 @@ class Worker(multiprocessing.Process):
 			for i in range(int(self.conf['REPEAT_COUNT'])):
 				# 쓰레드 생성
 				for j in range(int(self.conf['THREAD_PER_PROC'])):
-					thread = threading.Thread(target=self.test)
+					thread = threading.Thread(target=self.test,args=(j,))
 					thread_list.append(thread)
 				for j in thread_list:
 					j.start()
@@ -109,7 +113,7 @@ class Worker(multiprocessing.Process):
 	def cancel(self):
 		self.cancelFlag = True
 
-	def test(self):
+	def test(self,thread_count):
 		'''
 		패킷 테스트 하는 함수
 		'''
@@ -117,41 +121,42 @@ class Worker(multiprocessing.Process):
 			self.callback(self.callback_arg)
 			return
 
-		pos = 0
-		packet = ''
 
-		terminal_sock = self.terminal_sock_object.rdpModeConnect()
-		self.q.put(terminal_sock)
+		cert_info = self.cert_info_list[thread_count]
+		terminal_sock = self.terminal_sock_object.rdpModeConnect(cert_info_list=cert_info)
+		while True:
+			pos = 0
+			packet = ''
 
-		# 패킷 길이 확인 및 전송
-		while pos < len(self.packets):
-			if pos < len(self.packets):
-				packet = self.packets[pos]
-			pos_end = pos + 1
+			# 패킷 길이 확인 및 전송
+			while pos < len(self.packets):
+				if pos < len(self.packets):
+					packet = self.packets[pos]
+				pos_end = pos + 1
 
-			while pos_end < len(self.packets):
-				packet2 = self.packets[pos_end]
-				if packet.direction != packet2.direction:
+				while pos_end < len(self.packets):
+					packet2 = self.packets[pos_end]
+					if packet.direction != packet2.direction:
+						break
+					pos_end += 1
+				try:
+					# 패킷 전송
+					self.send_packet(pos, pos_end, terminal_sock)
+				except socket.timeout:
+					print('T(%d/0)' % len(packet.packet), end=' ')
+					sys.stdout.flush()
+				if self.progressCallback:
+					self.progressCallback(self.progressCallbackArg, pos_end - pos)
+				pos = pos_end
+
+				if self.cancelFlag:
 					break
-				pos_end += 1
-			try:
-				# 패킷 전송
-				self.send_packet(pos, pos_end, terminal_sock)
-			except socket.timeout:
-				print('T(%d/0)' % len(packet.packet), end=' ')
-				sys.stdout.flush()
-			if self.progressCallback:
-				self.progressCallback(self.progressCallbackArg, pos_end - pos)
-			pos = pos_end
 
-			if self.cancelFlag:
-				break
+			if int(self.conf['SLEEP']) != 0:
+				time.sleep(int(self.conf['SLEEP']))
 
-		if int(self.conf['SLEEP']) != 0:
-			time.sleep(int(self.conf['SLEEP']))
-
-		print("Session wait %d." % self.num)
-		self.callback(self.callback_arg)
+			print("Session wait %d." % self.num)
+			self.callback(self.callback_arg)
 
 	def send_packet(self, pos, pos_end, terminal_sock):
 		sendedPacket = 0

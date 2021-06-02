@@ -19,9 +19,6 @@ class DbmsUser:
     def run(self):
         conf = commonlib.readConfFile(CONFPATH)
 
-        packet_list = conf['PACKET_LIST_CSV']
-        packet_list = commonlib.getlistfromcsv(packet_list)
-
         target_list = conf['SERVER_LIST_CSV']
         target_list = commonlib.getlistfromcsv(target_list)
 
@@ -29,11 +26,11 @@ class DbmsUser:
         cert_info_list = commonlib.getlistfromcsv(cert_info_list)
 
         # 프로세스 개수와 타겟 개수가 1대1 매칭이 안될 경우
-        if len(target_list) != int(conf['SERVICE_COUNT']):
-            return
-
-        if len(packet_list) != int(conf['SERVICE_COUNT']):
-            return
+        # if len(target_list) != int(conf['SERVICE_COUNT']):
+        #     return
+        #
+        # if len(packet_list) != int(conf['SERVICE_COUNT']):
+        #     return
 
         process_count = int(conf['SERVICE_COUNT'])
 
@@ -47,11 +44,11 @@ class DbmsUser:
         process_list = []
         q = Queue()
         for i in range(process_count):
-            hexdata = commonlib.readFileLines(str(''.join(packet_list[i])))
+            hexdata = commonlib.readFileLines(str(''.join(target_list[i][4])))
             packets = packetutil.PacketReader.read(hexdata)
-            dbms_sock_object = packetutil.VirtualConnector(target_ip=str(target_list[i][1]),service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], dbsafer_port=int(conf['DYNAMIC_PORT']),svcnum=int(target_list[i][3]),cert_info_list=cert_info_list[i])
+            dbms_sock_object = packetutil.VirtualConnector(target_ip=str(target_list[i][1]),service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], dbsafer_port=int(conf['DYNAMIC_PORT']),svcnum=int(target_list[i][3]),interface = conf['BIND_INTERFACE'])
             process_list.append(Worker(i + 1,  dbms_sock_object,packets,
-                                      conf, target_list[i],callback, callback_arg, q))
+                                      conf, target_list[i],cert_info_list,callback, callback_arg, q))
         for i in process_list:
             print('process starting : ', i.num)
             i.start()
@@ -65,13 +62,14 @@ class DbmsUser:
 
 class Worker(multiprocessing.Process):
     def __init__(self, num, dbms_sock_object, packets,
-                 conf, target_list,callback, callback_arg, q):
+                 conf, target_list,cert_info_list,callback, callback_arg, q):
         multiprocessing.Process.__init__(self)
         self.num = num
         self.dbms_sock_object = dbms_sock_object
         self.packets = packets
         self.conf = conf
         self.target_list = target_list
+        self.cert_info_list = cert_info_list
         self.callback = callback
         self.callback_arg = callback_arg
         self.cancelFlag = False
@@ -95,7 +93,7 @@ class Worker(multiprocessing.Process):
             for i in range(int(self.conf['REPEAT_COUNT'])):
                 # 쓰레드 생성
                 for j in range(int(self.conf['THREAD_PER_PROC'])):
-                    thread = threading.Thread(target=self.test)
+                    thread = threading.Thread(target=self.test,args=(j,))
                     thread_list.append(thread)
                 for j in thread_list:
                     j.start()
@@ -113,7 +111,7 @@ class Worker(multiprocessing.Process):
     def cancel(self):
         self.cancelFlag = True
 
-    def test(self):
+    def test(self,thread_count):
         '''
         패킷 테스트 하는 함수
         '''
@@ -124,7 +122,8 @@ class Worker(multiprocessing.Process):
         type = self.target_list[0]
         type = packetutil.NATIDPKT.getTypeNumber(type)
 
-        dbms_sock = self.dbms_sock_object.dbModeConnect(type)
+        cert_info_list = self.cert_info_list[thread_count]
+        dbms_sock = self.dbms_sock_object.dbModeConnect(type,cert_info_list)
         self.q.put(dbms_sock)
 
         while True:

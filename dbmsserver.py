@@ -218,9 +218,6 @@ class DbmsSever:
     def run(self):
         conf = commonlib.readConfFile(CONFPATH)
 
-        packet_list = conf['PACKET_LIST_CSV']
-        packet_list = commonlib.getlistfromcsv(packet_list)
-
         target_list = conf['SERVER_LIST_CSV']
         target_list = commonlib.getlistfromcsv(target_list)
 
@@ -228,11 +225,11 @@ class DbmsSever:
         cert_info_list = commonlib.getlistfromcsv(cert_info_list)
 
         # 프로세스 개수와 타겟 개수가 1대1 매칭이 안될 경우
-        if len(target_list) != int(conf['SERVICE_COUNT']):
-            return
-
-        if len(packet_list) != int(conf['SERVICE_COUNT']):
-            return
+        # if len(target_list) != int(conf['SERVICE_COUNT']):
+        #     return
+        #
+        # if len(packet_list) != int(conf['SERVICE_COUNT']):
+        #     return
 
         process_count = int(conf['SERVICE_COUNT'])
 
@@ -248,7 +245,7 @@ class DbmsSever:
         q = Queue()
 
         for i in range(process_count):
-            hexdata = commonlib.readFileLines(str(''.join(packet_list[i])))
+            hexdata = commonlib.readFileLines(str(''.join(target_list[i][4])))
             packets = packetutil.PacketReader.read(hexdata)
             dbms_sock_object = packetutil.VirtualServer(service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'])
             process_list.append(Worker(i + 1, dbms_sock_object, packets,

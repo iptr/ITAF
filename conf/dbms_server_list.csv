@@ -1,3 +1,7 @@
-# type,host,target_protocol_port,service_number
-MSSQL,10.77.162.14,3306,50094831
-MSSQL,10.77.162.14,3307,50094832
+# type,host,target_protocol_port,service_number,packet_path
+MSSQL,10.77.162.14,3306,1423,mssql.txt
+MYSQL,10.77.162.14,3307,1560,mysql.txt
+ORACLE,10.77.162.14,3308,1561,oracle.txt
+POSTGRESQL,10.77.162.14,3309,1562,post.txt
+TIBERO,10.77.162.14,3310,1563,tibe.txt
+UDB,10.77.162.14,3311,1564,udb.txt

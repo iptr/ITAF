@@ -227,7 +227,7 @@ class Dbsafergui:
             elif action_list[0].find("keyboard") != -1:
                 command = action_list[1].replace("'",'')
                 command = command.replace('"','')
-                result = {"kind": "mouse", "command":command}
+                result = {"kind": "keyboard", "command":command}
 
             else:
                 raise Exception("알수없는 값!")
@@ -240,6 +240,6 @@ class Dbsafergui:
 
 if __name__ == '__main__':
     a = Dbsafergui()
-    #a.start(MANAGERPATH)
-    #a.login()
+    a.start(MANAGERPATH)
+    a.login()
     a.runTestCase("target.txt")

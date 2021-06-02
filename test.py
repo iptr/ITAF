@@ -6,7 +6,8 @@ import platform
 if platform.system() == "Windows":
     import winguicommon
 
-
+def ignoreComment():
+    pass
 
 def getCommand():
     # test Code
@@ -37,12 +38,10 @@ def proceedMsg(client_sock,addr,fp):
             break
 
 
-def setServer():
+def setServer(host,port):
     '''
     agent 와 통신
     '''
-    host = '127.0.0.1'
-    port = 5025
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -228,9 +227,13 @@ class RunAction(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         if ''.join(self.option) == "--runTestSuite":
-            RunAction.runTestSuite(self)
+            RunAction.runTestSuite(self,values)
 
-    def runTestSuite(self):
+    def runTestSuite(self,info):
+        account = info[0]
+        file_name = info[1]
+
+        setServer(host = '127.0.0.1',port = 5025)
         print("show!")
 
 
@@ -263,7 +266,7 @@ if __name__ == '__main__':
     parser.add_argument('--modifyService',action=ModifyAction)
     parser.add_argument('--modifyTestSuite',action=ModifyAction)
 
-    parser.add_argument('--runTestSuite',action=RunAction)
+    parser.add_argument('--runTestSuite',action=RunAction,nargs=3)
 
     parser.add_argument('--perfagtPrepare',action=Overloader)
     parser.add_argument('--perfagtRun',action=Overloader)

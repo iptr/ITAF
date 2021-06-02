@@ -279,7 +279,7 @@ class PcapReader:
 class VirtualConnector:
     lock = Lock()
 
-    def __init__(self,target_ip,service_port, dbsafer_ip, dbsafer_port,svcnum,cert_info_list):
+    def __init__(self,target_ip,service_port, dbsafer_ip, dbsafer_port,svcnum,interface):
         '''
 
         @param
@@ -292,15 +292,16 @@ class VirtualConnector:
         self.dbsafer_port = dbsafer_port
         self.service_port = service_port
         self.svcnum = svcnum
-        self.cert_info_list = cert_info_list
+        self.interface = interface
 
-    def dbModeConnect(self,type):
+    def dbModeConnect(self,type,cert_info_list):
         self.lock.acquire()
         try:
             nat = NATIDPKT()
             service_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            service_sock.setsockopt(socket.SOCK_STREAM, socket.SO_BINDTODEVICE, str(self.interface + '\0').encode('utf-8'))
             service_sock.connect((self.dbsafer_ip, self.dbsafer_port))
-            service_sock.send(nat.set(svcnum=self.svcnum,svctype=type,tgip=self.target_ip,tgport=self.service_port,gwport=self.dbsafer_port,gwip=self.dbsafer_ip,certid=self.cert_info_list[0],loip=self.cert_info_list[2],loport=service_sock.getsockname()[1],progname=self.cert_info_list[1]))
+            service_sock.send(nat.set(svcnum=self.svcnum,svctype=type,tgip=self.target_ip,tgport=self.service_port,gwport=self.dbsafer_port,gwip=self.dbsafer_ip,certid=cert_info_list[0],loip=cert_info_list[2],loport=service_sock.getsockname()[1],progname=cert_info_list[1]))
 
             return (service_sock)
         except Exception as e:
@@ -309,13 +310,14 @@ class VirtualConnector:
         finally:
             self.lock.release()
 
-    def rdpModeConnect(self):
+    def rdpModeConnect(self,cert_info_list):
         self.lock.acquire()
         try:
             nat =NATIDPKT()
             telnet_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            telnet_socket.setsockopt(socket.SOCK_STREAM,socket.SO_BINDTODEVICE,str(self.interface + '\0').encode('utf-8'))
             telnet_socket.connect((self.dbsafer_ip, self.dbsafer_port))
-            telnet_socket.send(nat.set(svcnum=self.svcnum,svctype=4,tgip=self.target_ip,tgport=self.service_port,gwport=self.dbsafer_port,gwip=self.dbsafer_ip,certid=self.cert_info_list[0],loip=self.cert_info_list[1],loport=telnet_socket.getsockname()[1]))
+            telnet_socket.send(nat.set(svcnum=self.svcnum,svctype=4,tgip=self.target_ip,tgport=self.service_port,gwport=self.dbsafer_port,gwip=self.dbsafer_ip,certid=cert_info_list[0],loip=cert_info_list[1],loport=telnet_socket.getsockname()[1]))
             # 필수정보 교체: 대상서비스번호, 대상IP, port, 로컬IP, 로컬port, dbsIP, dbsport,
             #               보안계정)))
 

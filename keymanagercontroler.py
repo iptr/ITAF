@@ -1,6 +1,7 @@
 from selenium import webdriver
 import time
 import re
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
@@ -17,14 +18,18 @@ KEYCONFPATH = "keyManager.conf"
 
 class KeyManager:
     def __init__(self):
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('ignore-certificate-errors')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        # 크롬 드라이버 경로 설정 및 세팅
-        self.driver = webdriver.Chrome(executable_path=DRIVEPATH, chrome_options=chrome_options)
-        # 페이지 로딩 최대 대기 시간 설정
-        self.wait = WebDriverWait(self.driver, WAITTIME)
+        try:
+            chrome_option = Options()
+            chrome_option.add_argument('--no-sandbox')
+            chrome_option.add_argument('ignore-certificate-errors')
+            chrome_option.add_argument('--disable-dev-shm-usage')
+            # 크롬 드라이버 경로 설정 및 세팅
+            self.driver = webdriver.Chrome(executable_path=DRIVEPATH, chrome_options=chrome_option)
+            # 페이지 로딩 최대 대기 시간 설정
+            self.wait = WebDriverWait(self.driver, WAITTIME)
+        except Exception as e:
+            print("cccccc")
+            print(e)
 
     def login(self):
         """
@@ -32,12 +37,14 @@ class KeyManager:
 
         ID, PASSWORD기준으로 KEYMANAGER 로그인
         """
-
-        conf = commonlib.readConfFile(KEYCONFPATH)
-        self.driver.get(conf["URL"])
-        self.driver.find_element_by_id('loginId').send_keys(conf["ID"])
-        self.driver.find_element_by_id("loginPassword").send_keys(conf["PASSWD"])
-        self.driver.find_element_by_class_name("loginCenterBottom").click()
+        try:
+            conf = commonlib.readConfFile(KEYCONFPATH)
+            self.driver.get(conf["URL"])
+            self.driver.find_element_by_id('loginId').send_keys(conf["ID"])
+            self.driver.find_element_by_id("loginPassword").send_keys(conf["PASSWD"])
+            self.driver.find_element_by_class_name("loginCenterBottom").click()
+        except Exception as e:
+            print("ddddddd")
 
 #---------------------------------------- INIT
 
@@ -263,7 +270,7 @@ class KeyManager:
         return True
 
 
-    def inputKeyExpain(self,msg):
+    def inputKeyExplain(self,msg):
         '''
         새로 만들 키의 설명 추가
         @param
@@ -453,7 +460,7 @@ class KeyManager:
             True - 성공
             False - 실패
         '''
-        if KeyManager.clickObjcet(self,"/html/body/article/div[2]/div/div[2]/div[1]/div/table/tbody/tr/td[2]",name) == False
+        if KeyManager.clickObjcet(self,"/html/body/article/div[2]/div/div[2]/div[1]/div/table/tbody/tr/td[2]",name) == False:
             return False
 
         if KeyManager.clickRemoveButton(self) == False:
@@ -702,7 +709,7 @@ class KeyManager:
             True - 성공
             False - 실패
         '''
-        if KeyManager.clickObjcet(self,"/html/body/article/div[2]/div/div[2]/div[1]/div/table/tbody/tr/td[2]",name) == False
+        if KeyManager.clickObjcet(self,"/html/body/article/div[2]/div/div[2]/div[1]/div/table/tbody/tr/td[2]",name) == False:
             return False
 
         if KeyManager.clickRemoveButton(self) == False:
@@ -721,6 +728,7 @@ class KeyManager:
             #그룹
         # TODO : 관리 로그 DB 테이블 확인 및 조회로 해당 값 반환 예정
         # TODO : Key Manager 관련 DB 및 테이블 확인 필요
+        pass
 
     def showKeyLog(self):
         pass
@@ -739,6 +747,7 @@ class KeyManager:
             #라이센스
             #기타 설정
         # TODO : 관리 로그 DB 테이블 확인 및 조회로 해당 값 반환 예정
+        pass
 
     def showAdminLog(self):
         pass
@@ -753,3 +762,7 @@ class KeyManager:
         pass
 
 #---------------------------------------------------------------------- LOG
+
+if __name__ == '__main__':
+    a = KeyManager()
+    a.addKey("Abc")

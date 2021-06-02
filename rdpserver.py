@@ -26,14 +26,14 @@ CONFPATH = 'conf/rdp_tester.conf'
 
 class Worker(multiprocessing.Process):
     def __init__(self, num, connector, packets,
-                 conf, target_info,login_id,callback, callback_arg, wta_packet,que):
+                 conf, target_info,cert_info_list,callback, callback_arg, wta_packet,que):
         multiprocessing.Process.__init__(self)
         self.num = num
         self.connector = connector
         self.packets = packets
         self.conf = conf
         self.target_info = target_info
-        self.login_id = login_id
+        self.cert_info_list = cert_info_list
         self.callback = callback
         self.callback_arg = callback_arg
         self.cancelFlag = False
@@ -61,7 +61,7 @@ class Worker(multiprocessing.Process):
             for i in range(int(self.conf['REPEAT_COUNT'])):
                 # 쓰레드 생성
                 for j in range(int(self.conf['THREAD_PER_PROC'])):
-                    thread = threading.Thread(target=self.test)
+                    thread = threading.Thread(target=self.test,args=(j,))
                     thread_list.append(thread)
                 for j in thread_list:
                     j.start()
@@ -79,7 +79,7 @@ class Worker(multiprocessing.Process):
     def cancel(self):
         self.cancelFlag = True
 
-    def test(self):
+    def test(self,thread_count):
         '''
         패킷 테스트 하는 함수
         '''
@@ -92,26 +92,17 @@ class Worker(multiprocessing.Process):
         # 각 세션 소켓 반환
         (telnet_socket,wta_socket,wta_info_socket) = self.connector.rdpModeServer()
         print(telnet_socket)
-        try:
-            self.q.put(telnet_socket)
-            self.q.put(wta_socket)
-            self.q.put(wta_info_socket)
 
-        except Exception as e:
-            print("ERROR")
         print("Connected %d." % self.num)
 
 
-        pos = 0
-        wta_pos = 0
-        wta_pos_end = 0
-        flag = 0
-        packet = ''
+
         # 패킷 길이 확인 및 전송
         #w = wtapacket.WtaPacketMaker()
         #wta_info = w.collectInfo(wta_info_socket)
 
-        wta_packet = wtaproxymaker.WtaProxyPacketMaker(login_id=self.login_id,target_ip=self.target_info[1])
+        login_id = self.cert_info_list[thread_count][0]
+        wta_packet = wtaproxymaker.WtaProxyPacketMaker(login_id=login_id,target_ip=self.target_info[1])
         wta_packet.makePacket()
 
         port_data = telnet_socket.getpeername()[1]
@@ -120,42 +111,47 @@ class Worker(multiprocessing.Process):
         encry_wta_packet.append(wta_packet.startSignal())
         encry_wta_packet.append(wta_packet.dynamicPacketMaker(port_data))
         encry_wta_packet.append(wta_packet.encryptPacket())
+        while True:
+            pos = 0
+            wta_pos = 0
+            wta_pos_end = 0
+            flag = 0
+            packet = ''
+            while pos < len(self.packets):
+                if pos < len(self.packets):
+                    packet = self.packets[pos]
+                pos_end = pos + 1
 
-        while pos < len(self.packets):
-            if pos < len(self.packets):
-                packet = self.packets[pos]
-            pos_end = pos + 1
+                wta_pos_end = wta_pos + 1
 
-            wta_pos_end = wta_pos + 1
+                while pos_end < len(self.packets):
+                    packet2 = self.packets[pos_end]
+                    if packet.direction != packet2.direction:
+                        break
+                    pos_end += 1
 
-            while pos_end < len(self.packets):
-                packet2 = self.packets[pos_end]
-                if packet.direction != packet2.direction:
+
+                try:
+                    # 패킷 전송
+                    self.send_packet(pos, pos_end, telnet_socket,wta_socket,wta_pos,wta_pos_end,flag,encry_wta_packet)
+                    flag = flag + 1
+                except socket.timeout:
+                    print('T(%d/0)' % len(packet.packet), end=' ')
+                    sys.stdout.flush()
+                if self.progressCallback:
+                    self.progressCallback(self.progressCallbackArg, pos_end - pos)
+                pos = pos_end
+                print(pos,pos_end,len(self.packets))
+                wta_pos = wta_pos_end
+                if self.cancelFlag:
                     break
-                pos_end += 1
 
+            if int(self.conf['SLEEP']) != 0:
+                time.sleep(int(self.conf['SLEEP']))
 
-            try:
-                # 패킷 전송
-                self.send_packet(pos, pos_end, telnet_socket,wta_socket,wta_pos,wta_pos_end,flag,encry_wta_packet)
-                flag = flag + 1
-            except socket.timeout:
-                print('T(%d/0)' % len(packet.packet), end=' ')
-                sys.stdout.flush()
-            if self.progressCallback:
-                self.progressCallback(self.progressCallbackArg, pos_end - pos)
-            pos = pos_end
-            print(pos,pos_end,len(self.packets))
-            wta_pos = wta_pos_end
-            if self.cancelFlag:
-                break
+            print("Session wait %d." % self.num)
 
-        if int(self.conf['SLEEP']) != 0:
-            time.sleep(int(self.conf['SLEEP']))
-
-        print("Session wait %d." % self.num)
-
-        self.callback(self.callback_arg)
+            self.callback(self.callback_arg)
 
     def send_packet(self, pos, pos_end, telnet_socket, wta_socket, wta_pos, wta_pos_end, flag, encry_wta_packet):
         '''
@@ -232,16 +228,19 @@ class Worker(multiprocessing.Process):
 
         wta_stop_pos = len(self.wta_packet) + len(encry_wta_packet) - 1
         print(len(self.wta_packet), len(encry_wta_packet), wta_pos, wta_pos_end)
-
-        if wta_pos_end < wta_stop_pos:
-            print("WTA SEND")
-            if flag < 3:
-                wta_socket.send(encry_wta_packet[wta_pos])
-            else:
-                if wta_pos - 3 < 0:
-                    pass
+        try:
+            if wta_pos_end < wta_stop_pos:
+                print("WTA SEND")
+                if flag < 3:
+                    wta_socket.send(encry_wta_packet[wta_pos])
                 else:
-                    wta_socket.send(self.wta_packet[wta_pos-3].packet)
+                    if wta_pos - 3 < 0:
+                        pass
+                    else:
+                        wta_socket.send(self.wta_packet[wta_pos-3].packet)
+        except Exception as e:
+            print("stupid WTA")
+            print(e)
 
 class RdpServer:
     def __init__(self):
@@ -263,14 +262,17 @@ class RdpServer:
         cert_list = commonlib.getlistfromcsv(cert_list)
 
         # 프로세스 개수와 타겟 개수가 1대1 매칭이 안될 경우
-        if len(target_list) != int(conf['SERVICE_COUNT']):
-            return
-
-        if len(packet_list) != int(conf['SERVICE_COUNT']):
-            return
-
-        if len(wta_list) != int(conf['SERVICE_COUNT']):
-            return
+        # if len(target_list) != int(conf['SERVICE_COUNT']):
+        #     return
+        #
+        # if len(packet_list) != int(conf['SERVICE_COUNT']):
+        #     return
+        #
+        # if len(wta_list) != int(conf['SERVICE_COUNT']):
+        #     return
+        #
+        # if len(cert_list) != int(conf['THREAD_PER_PROC']):
+        #     return
 
         curCount = 0
 
@@ -301,11 +303,9 @@ class RdpServer:
             hexdata = commonlib.readFileLines((str(''.join(wta_list[i]))))
             wta_packet = packetutil.PacketReader.read(hexdata)
 
-            login_id = cert_list[i][0]
-
             connecte = packetutil.VirtualServer(service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], wta_info=wta_info,wta_proxy_info=wta_proxy_info)
             process_list.append(Worker(i + 1, connecte, packets,
-                                  conf, target_list[i],login_id,callback, callback_arg, wta_packet,q))
+                                  conf, target_list[i],cert_list,callback, callback_arg, wta_packet,q))
 
         for i in process_list:
             print('process starting : ', i.num)

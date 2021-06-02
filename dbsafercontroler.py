@@ -177,7 +177,11 @@ class Policy:
                     4. DB 권한제어
                     5. FTP 권한제어
                     6. TERMINAL 권한제어
-            kwargs -
+            kwargs - 컬럼, 값 (컬럼 = 값 의 형식)
+
+        @return
+            True - 성공
+            False - 실패
         '''
         # no 는 현재 시간을 받아 대입
         id = time.time_ns()
@@ -226,7 +230,7 @@ class Policy:
 
         return True
 
-    def modifyDBAccessPolicy(self,name,mode = 1,**kwargs):
+    def modifyPolicy(self,name,mode = 1,**kwargs):
         '''
         정책 수정
 
@@ -269,7 +273,7 @@ class Policy:
 
         return True
 
-    def deleteAccessPolicy(self,name,mode = 1):
+    def deletePolicy(self,name,mode = 1):
         '''
         DB 접근 제어 정책 삭제
 
@@ -348,7 +352,7 @@ class Policy:
 
         return True
 
-    def getPolicyNumber(self, service_name, table=""):
+    def getPolicyNumber(self, service_name, mode = 1):
         '''
         정책 number 확인
 
@@ -356,6 +360,22 @@ class Policy:
             service_name - 정책 이름을 확인 하고자하는 정책 서비스 이름
             table - 해당 서비스가 존재하는 테이블
         '''
+        table = ""
+
+        if mode == 1:
+            table = "policy_db_access"
+        elif mode == 2:
+            table = "policy_ftp_access"
+        elif mode == 3:
+            table = "policy_shell_access"
+        elif mode == 4:
+            table = "policy_db_auth"
+        elif mode == 5:
+            table = "policy_ftp_access"
+        elif mode == 6:
+            table = "policy_shell_access"
+        else:
+            return False
         result = []
         result = self.mysql.select("dbsafer3",table,"name = '%s'"%(service_name),["no"])
         return result[0]

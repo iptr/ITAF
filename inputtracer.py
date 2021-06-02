@@ -15,8 +15,11 @@ global_path = ""
 class InputTracer:
     def __init__(self,path):
         self.path=path
+        InputTracer.setGlobalPath(self)
+
+    def setGlobalPath(self):
         global global_path
-        global_path = path
+        global_path = self.path
 
     def initPatternFile(self):
         '''
