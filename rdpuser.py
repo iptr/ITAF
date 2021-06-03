@@ -8,12 +8,14 @@ import commonlib
 import select
 import asyncio
 import packetutil
-from multiprocessing import Queue
 
 socket.setdefaulttimeout(10)
 CONFPATH = 'conf/rdp_tester.conf'
 
 class rdpUser:
+	'''
+	rdp proxy Shooter Client Mode
+	'''
 	def __init__(self):
 		pass
 
@@ -48,13 +50,24 @@ class rdpUser:
 
 		process_list = []
 
-		q = Queue()
+		# TODO : pcap 파일을 적용 시킬 때 예문
+		# # conf 파일의 패킷 파일을 가져와서 적용
+		# pcap_mode = packetutil.PcapReader(packet_list[i])
+		# # 해당 pcap 파일에서 stream 별로 나눈 리스트 반환
+		# stream_data = pcap_mode.getPacketData()
+		# stream_index = 0
+		# if stream_index < 0 or stream_index > len(stream_data):
+		# 	return
+		# # 0번 스트림을 packet에 저장 (해당 저장한 packet Shoot)
+		# # 1번 스트림을 사용하고 싶을 에는 stream_data[stream_index]
+		# packet = stream_data[stream_index]
+
 		for i in range(int(conf['SERVICE_COUNT'])):
 			hexdata = commonlib.readFileLines(str(''.join(packet_list[i])))
 			packets = packetutil.PacketReader.read(hexdata)
 			terminal_sock_object = packetutil.VirtualConnector(target_ip=str(target_list[i][1]),service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'], dbsafer_port=int(conf['DYNAMIC_PORT']),svcnum=int(target_list[i][3]),interface=conf['BIND_INTERFACE'])
 			process_list.append(Worker(i + 1,  terminal_sock_object,packets,
-									  conf, target_list[i],cert_info_list,callback, callback_arg, q))
+									  conf, target_list[i],cert_info_list,callback, callback_arg))
 
 		for i in process_list:
 			print('process starting : ', i.num)
@@ -64,8 +77,11 @@ class rdpUser:
 			print('process joined.', i.num)
 
 class Worker(multiprocessing.Process):
+	'''
+	multiprocessing Class
+	'''
 	def __init__(self, num, terminal_sock_object,packets,
-				 conf, target_list,cert_info_list, callback, callback_arg,q):
+				 conf, target_list,cert_info_list, callback, callback_arg):
 		multiprocessing.Process.__init__(self)
 		self.num = num
 		self.terminal_sock_object = terminal_sock_object
@@ -78,12 +94,11 @@ class Worker(multiprocessing.Process):
 		self.cancelFlag = False
 		self.progressCallback = None
 		self.progressCallbackArg = None
-		self.q = q
 
 	def run(self):
 		'''
 		시작 하는 함수
-
+		쓰레드 생성 후 각 쓰레드가 지정된 일을 처리
 		'''
 		thread_list = []
 
@@ -116,6 +131,7 @@ class Worker(multiprocessing.Process):
 	def test(self,thread_count):
 		'''
 		패킷 테스트 하는 함수
+		터미널 소켓을 연결, 해당 패킷 전송
 		'''
 		if self.cancelFlag:
 			self.callback(self.callback_arg)
@@ -159,6 +175,12 @@ class Worker(multiprocessing.Process):
 			self.callback(self.callback_arg)
 
 	def send_packet(self, pos, pos_end, terminal_sock):
+		'''
+		패킷 전송 하는 함수
+		1회 호출시 1번의 send or recv 시행
+		텔넷 관련 패킷을 먼저 1회 send or recv 한 후
+		wta 패킷을 send
+		'''
 		sendedPacket = 0
 		sended = 0
 		recvedPacket = 0
