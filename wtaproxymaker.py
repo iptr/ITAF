@@ -18,7 +18,7 @@ class WtaProxyPacketMaker:
     def setWtaInfo(self):
         '''
         WAS 정보 취득
-
+        client ip, service port, mapping 되어 있는 port 의 정보를 취득
         '''
         self.target_ip = self.wta_info[b"CLIENT_IP"].decode("ascii")
         self.dbsafer_port = int(self.wta_info[b"SERVICE_PORT"].decode("ascii"))
@@ -33,6 +33,10 @@ class WtaProxyPacketMaker:
         self.target_port = self.port_map[self.dbsafer_port]
 
     def setHead(self):
+        '''
+        127.0.0.1 의 콘솔 접속 로깅 시 사용되는 패킷
+        wta 헤더 부분
+        '''
         result = b''
         MSG = b'WTA'
         UnKnown=bytes.fromhex("18")
@@ -57,6 +61,9 @@ class WtaProxyPacketMaker:
 
 
     def makePacket(self):
+        '''
+        암호화를 하지 않은 WTA_PROXY 패킷을 생성
+        '''
         # wta_proxy_server 기준
         # 프로토콜 버전 (2 Byte) 00 01
         # telnet SRC Port (4 Byte)
@@ -103,6 +110,10 @@ class WtaProxyPacketMaker:
         print(self.result)
 
     def encryptPacket(self):
+        '''
+        wta 패킷을 암호화
+        wta_proxy_server의 규칙에 따라 암호화 진행
+        '''
         packet = b''
 
         hash_object = hashxor.HashMd5(self.result)
@@ -120,6 +131,10 @@ class WtaProxyPacketMaker:
         return result
 
     def decryptPacket(self,text):
+        '''
+        암호화된 패킷을 복호화 하는 함수
+        제대로 암호화가 되었는 검증을 하기 위해 사용
+        '''
         decry = hashxor.HashXor(text)
 
         result = decry.decrypt(text[16:],len(text) - 16)
@@ -127,11 +142,18 @@ class WtaProxyPacketMaker:
         return result
 
     def startSignal(self):
+        '''
+        버전 정보를 명시
+        패킷의 최 상단의 표기 되기 때문에 시작 신호라고 봐도 무방
+        '''
         result = bytes.fromhex("00") + bytes.fromhex("01")
 
         return result
 
     def getPort(self):
+        '''
+        wta 에서 받은 port 정보를 반환
+        '''
         port_hex = hex(self.dbsafer_port).rstrip("L").lstrip("0x") or "0"
         port_hex = '0' * (8 - len(port_hex)) + port_hex
 
@@ -140,6 +162,9 @@ class WtaProxyPacketMaker:
         return result
 
     def getIP(self):
+        '''
+        wta 에서 받은 ip 정보를 반환
+        '''
         MSG = b'WTA'
         UnKnown=bytes.fromhex("57")
         ip_list = self.target_ip.split(".")
@@ -155,6 +180,9 @@ class WtaProxyPacketMaker:
         return result
 
     def dynamicPacketMaker(self,port):
+        '''
+        wta_proxy_server 에 동적 포트를 사용해서 보낼 시 해당 함수를 사용
+        '''
         result = b''
         port_hex = hex(port).rstrip("L").lstrip("0x") or "0"
         port_hex = '0' * (8 - len(port_hex)) + port_hex

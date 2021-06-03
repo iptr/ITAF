@@ -16,7 +16,9 @@ class WtaPacketMaker:
         self.hash_value = b''
 
     def makePacket(self,client_ip,service_ip,service_port,wta_proxy_port,client_port):
-
+        '''
+        wta_server_manager 패킷 생성
+        '''
         current_time = str(int(time.time()))
 
         current_time = current_time.encode()
@@ -41,6 +43,9 @@ class WtaPacketMaker:
         self.result += self.ports_map_header + self.eq_chr + ports_map + self.token
 
     def encryptPacket(self):
+        '''
+        wta_server_manager 패킷 암호화
+        '''
         packet = b''
 
         hash_object = hashxor.HashMd5(self.result)
@@ -58,6 +63,9 @@ class WtaPacketMaker:
         return result
 
     def decryptPacket(self,text):
+        '''
+        wta_server_manager 패킷 복호화
+        '''
         decry = hashxor.HashXor(text)
 
         result = decry.decrypt(text[16:],len(text) - 16)
@@ -65,6 +73,10 @@ class WtaPacketMaker:
         return result
 
     def collectInfo(self,wta_info_socket):
+        '''
+        socket 을 입력 받아 wta 에서 받는 정보를 반환
+        반환된 정보는 wta_proxy_server패킷을 만들어 보낼때 사용
+        '''
         wta_info = {}
         wta_recv = wta_info_socket.recv(1000)
         if len(wta_recv) != 0:
