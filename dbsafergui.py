@@ -10,6 +10,9 @@ RIGHT = 2
 DRAG = 3
 
 class Dbsafergui:
+    '''
+    DBSAFER MANAGER CONTROL CLASS
+    '''
     def __init__(self):
         conf = commonlib.readConfFile(CONFIGPATH)
         self.id = conf['id']

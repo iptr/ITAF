@@ -61,6 +61,11 @@ class DbmsUser:
             'Done. [%02d:%02d:%02.2d]' % (int(elapsed_time) / 60 / 60, int(elapsed_time) / 60 % 60, elapsed_time % 60))
 
 class Worker(multiprocessing.Process):
+    '''
+        multiprocessing class
+        각 생성된 프로세스가 thread 를 만들어 패킷 송수신
+
+    '''
     def __init__(self, num, dbms_sock_object, packets,
                  conf, target_list,cert_info_list,callback, callback_arg, q):
         multiprocessing.Process.__init__(self)
@@ -80,6 +85,7 @@ class Worker(multiprocessing.Process):
     def run(self):
         '''
         시작 하는 함수
+        created Thread
 
         '''
 
@@ -114,6 +120,7 @@ class Worker(multiprocessing.Process):
     def test(self,thread_count):
         '''
         패킷 테스트 하는 함수
+        Client connect and send packet
         '''
         if self.cancelFlag:
             self.callback(self.callback_arg)
@@ -162,6 +169,10 @@ class Worker(multiprocessing.Process):
         print("Session wait %d." % self.num)
 
     def send_packet(self, pos, pos_end, dbms_sock):
+        '''
+        select를 이용하여 패킷 송수신을 담당하는 함수
+        호출 될 때 마다 send, recv 를 변경하여 Server 측과 실제로 통신 하는 것 처럼 보이게 함
+        '''
         try:
             sendedPacket = 0
             sended = 0

@@ -17,6 +17,11 @@ KEYCONFPATH = "keyManager.conf"
 
 
 class KeyManager:
+    '''
+    This class tests the keymanager web manager.
+
+    This test is performed using Selenium and Chrome.
+    '''
     def __init__(self):
         try:
             chrome_option = Options()

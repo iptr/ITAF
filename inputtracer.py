@@ -13,6 +13,11 @@ global_y = ""
 global_path = ""
 
 class InputTracer:
+    '''
+    This class records mouse and keyboard events in real time.
+
+    It is used for GUI control related to Windows.
+    '''
     def __init__(self,path):
         self.path=path
         InputTracer.setGlobalPath(self)

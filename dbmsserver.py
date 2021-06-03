@@ -9,8 +9,6 @@ from multiprocessing import Process, Lock, Queue
 import multiprocessing
 import packetutil
 
-
-
 # 스택 사이즈 결정
 if sys.version_info >= (3, 5):
     threading.stack_size(1024 * 1024 * 1024 * 2)
@@ -20,9 +18,13 @@ if sys.version_info >= (3, 5):
 CONFPATH = 'conf/dbms_tester.conf'
 
 class Worker(multiprocessing.Process):
+    '''
+    multiprocessing class
 
+    각 생성된 프로세스가 thread 를 만들어 패킷 송수신
+    '''
     def __init__(self, num, dbms_sock_object, packets,
-                 conf, target_list, callback, callback_arg, q):
+                 conf, target_list, callback, callback_arg):
         multiprocessing.Process.__init__(self)
         self.num = num
         self.dbms_sock_object = dbms_sock_object
@@ -34,7 +36,6 @@ class Worker(multiprocessing.Process):
         self.cancelFlag = False
         self.progressCallback = None
         self.progressCallbackArg = None
-        self.q = q
 
     def setProgressCallback(self, callback, callbackarg):
         self.progressCallback = callback
@@ -43,7 +44,7 @@ class Worker(multiprocessing.Process):
     def run(self):
         '''
         시작 하는 함수
-
+        created Thread
         '''
         thread_list = []
 
@@ -79,6 +80,7 @@ class Worker(multiprocessing.Process):
     def test(self):
         '''
         패킷 테스트 하는 함수
+        server accept and send packet
         '''
         if self.cancelFlag:
             self.callback(self.callback_arg)
@@ -88,7 +90,6 @@ class Worker(multiprocessing.Process):
         print("Connecting %d..." % self.num)
         # 각 세션 소켓 반환
         (dbms_sock) = self.dbms_sock_object.dbmsModeServer()
-        self.q.put(dbms_sock)
 
         print("Connected %d." % self.num)
 
@@ -138,6 +139,7 @@ class Worker(multiprocessing.Process):
     def send_packet(self, pos, pos_end, dbms_sock):
         '''
         select를 이용하여 패킷 송수신을 담당하는 함수
+        호출 될 때 마다 send, recv 를 변경하여 Client 측과 실제로 통신 하는 것 처럼 보이게 함
         '''
         try:
             sendedPacket = 0
@@ -212,10 +214,16 @@ class Worker(multiprocessing.Process):
             print("error")
 
 class DbmsSever:
+    '''
+    DBMS Proxy Server Mode
+    '''
     def __init__(self):
         pass
 
     def run(self):
+        '''
+        conf 파일을 읽어 설정된 옵션대로 실행
+        '''
         conf = commonlib.readConfFile(CONFPATH)
 
         target_list = conf['SERVER_LIST_CSV']
@@ -242,14 +250,13 @@ class DbmsSever:
         start_time = time.time()
 
         process_list = []
-        q = Queue()
 
         for i in range(process_count):
             hexdata = commonlib.readFileLines(str(''.join(target_list[i][4])))
             packets = packetutil.PacketReader.read(hexdata)
             dbms_sock_object = packetutil.VirtualServer(service_port=int(target_list[i][2]), dbsafer_ip=conf['DBSAFER_GW_IP'])
             process_list.append(Worker(i + 1, dbms_sock_object, packets,
-                                       conf, target_list[i], callback, callback_arg, q))
+                                       conf, target_list[i], callback, callback_arg))
 
         for i in process_list:
             print('process starting : ', i.num)
@@ -257,8 +264,6 @@ class DbmsSever:
         for i in process_list:
             i.join()
             print('process joined.', i.num)
-
-        q.close()
 
         elapsed_time = time.time() - start_time
         print('\n')

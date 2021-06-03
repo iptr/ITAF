@@ -7,7 +7,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 import commonlib
-#TODO: 기능 통일이 시급 (어떤건 들어가야하고 어떤건 들어가져 있고, 실제 사용자가 사용을 하였을때 기본으로 add를 할때 페이지를 들어가는 것을 요구함, 해당 페이지의 요소를 탐색하여 요소가 없을시에만 페이지 버튼을 클릭하도록 수정을 요함
 ONEIPMODE = 1
 IPRANGEMODE = 2
 IPANYMODE = 3
@@ -21,6 +20,11 @@ KERNEL = 2
 APIANDAGENT=3
 
 class WebControl:
+    '''
+    DC Web Control Class
+
+    This test is performed using Selenium and Chrome.
+    '''
     def __init__(self):
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument('--no-sandbox')

@@ -3,6 +3,11 @@ import dbsaferudpsender
 import dbctrl
 
 class Service:
+    '''
+    dbsafer Service control class
+
+    서비스 추가 제거 사용 정지 수정등을 행함
+    '''
     def __init__(self):
         self.mysql = dbctrl.DBCtrl()
         #TODO : conf 파일 활용
@@ -159,6 +164,11 @@ class Service:
         return True
 
 class Policy:
+    '''
+    dbsafer Policy control class
+
+    정책 추가 사용 제거 수정 등을 행함
+    '''
     def __init__(self):
         #TODO:conf File
         self.mysql = dbctrl.DBCtrl()
@@ -381,6 +391,11 @@ class Policy:
         return result[0]
 
 class DBSAFERLogger:
+    '''
+    A class that allows you to check DBSAFER's logs.
+
+    DB, FTP, Terminal 관련 로그 확인
+    '''
     def __init__(self):
         # TODO : conf File
         self.mysql = dbctrl.DBCtrl()

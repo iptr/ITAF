@@ -3,6 +3,11 @@ import hashlib
 
 
 class HashXor:
+    '''
+    wta packet encryption class
+
+    Encrypt plaintext using MD5 and XOR
+    '''
     def __init__(self,hash):
         self.hash = hash[0:16]
         self.pos = 0
@@ -56,6 +61,9 @@ class HashXor:
         return bytes(result)
 
 class HashMd5:
+    '''
+    A class that hashes using MD5
+    '''
     def __init__(self,text):
         self.text = text
 
