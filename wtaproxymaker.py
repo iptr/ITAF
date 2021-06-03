@@ -2,6 +2,11 @@ import hashxor
 import time
 
 class WtaProxyPacketMaker:
+    '''
+    This class is a class that processes packets to be sent to wta_proxy_server.
+
+    Since wta_proxy_server communicates with encryption, there is an encryption function, and a decryption function is added to check whether encryption is normal. Also included is a function that creates a packet according to the wta_proxy_server packet rule.
+    '''
     def __init__(self,login_id,target_ip,wta_info={}):
         self.result = b''
         self.hash_value = b''
@@ -36,6 +41,9 @@ class WtaProxyPacketMaker:
         '''
         127.0.0.1 의 콘솔 접속 로깅 시 사용되는 패킷
         wta 헤더 부분
+
+        @return
+            Head Result
         '''
         result = b''
         MSG = b'WTA'
@@ -113,6 +121,9 @@ class WtaProxyPacketMaker:
         '''
         wta 패킷을 암호화
         wta_proxy_server의 규칙에 따라 암호화 진행
+
+        @return
+            암호문
         '''
         packet = b''
 
@@ -134,6 +145,12 @@ class WtaProxyPacketMaker:
         '''
         암호화된 패킷을 복호화 하는 함수
         제대로 암호화가 되었는 검증을 하기 위해 사용
+
+        @param
+            text - 암호화된 내용
+
+        @return
+            평문
         '''
         decry = hashxor.HashXor(text)
 
@@ -145,6 +162,9 @@ class WtaProxyPacketMaker:
         '''
         버전 정보를 명시
         패킷의 최 상단의 표기 되기 때문에 시작 신호라고 봐도 무방
+
+        @return
+            0x000x01
         '''
         result = bytes.fromhex("00") + bytes.fromhex("01")
 
@@ -153,6 +173,9 @@ class WtaProxyPacketMaker:
     def getPort(self):
         '''
         wta 에서 받은 port 정보를 반환
+
+        @return
+            port value
         '''
         port_hex = hex(self.dbsafer_port).rstrip("L").lstrip("0x") or "0"
         port_hex = '0' * (8 - len(port_hex)) + port_hex
@@ -164,6 +187,9 @@ class WtaProxyPacketMaker:
     def getIP(self):
         '''
         wta 에서 받은 ip 정보를 반환
+
+        @return
+            ip value
         '''
         MSG = b'WTA'
         UnKnown=bytes.fromhex("57")
@@ -182,6 +208,12 @@ class WtaProxyPacketMaker:
     def dynamicPacketMaker(self,port):
         '''
         wta_proxy_server 에 동적 포트를 사용해서 보낼 시 해당 함수를 사용
+
+        @param
+            port - telnet Port (역바인드해야해서)
+
+        @result
+            port data(4 Byte)
         '''
         result = b''
         port_hex = hex(port).rstrip("L").lstrip("0x") or "0"

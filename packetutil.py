@@ -6,6 +6,9 @@ from ipaddress import IPv4Address
 import dpkt
 
 class NATIDPKT:
+    '''
+    NAT ID 패킷 관련
+    '''
     idcode = b'NATIDENTITY'
     pktver = pack('>H',1)
     totlen = pack('>H',0)
@@ -85,6 +88,15 @@ class NATIDPKT:
 
     @staticmethod
     def getTypeNumber(type):
+        '''
+        config 파일에 지정되어 있는 타입을 읽어 해당 서비스 번호를 반환
+
+        @param
+            type - string 형태의 서비스
+
+        @return
+            서비스 번호 반환
+        '''
         type = type.lower()
 
         type_num = -1
@@ -144,6 +156,9 @@ class NATIDPKT:
         return type_num
 
 class Packet:
+    '''
+    패킷 구조체
+    '''
     direction = True
     packet = ''
 
@@ -160,6 +175,9 @@ class Packet:
 
 
 class PacketReader:
+    '''
+    hex stream 으로 저장된 패킷 txt 파일을 사용 가능하도록 read
+    '''
     @staticmethod
     def read(data):
         '''
@@ -218,6 +236,9 @@ class PacketReader:
         return ret
 
 class PcapReader:
+    '''
+    pcap 파일을 읽어 패킷 구조체로 가공
+    '''
     def __init__(self,path):
         self.path = path
 
@@ -277,6 +298,10 @@ class PcapReader:
         return stream_data
 
 class VirtualConnector:
+    '''
+    proxy 전용 가상으로 연결
+    Client 전용
+    '''
     lock = Lock()
 
     def __init__(self,target_ip,service_port, dbsafer_ip, dbsafer_port,svcnum,interface):
@@ -295,6 +320,16 @@ class VirtualConnector:
         self.interface = interface
 
     def dbModeConnect(self,type,cert_info_list):
+        '''
+        dbms 와 DBSAFER 서비스 간 연결
+
+        @param
+            type - 서비스 타입
+            cert_info_list - 보안 계정 관련 정보
+
+        @return
+            client socket
+        '''
         self.lock.acquire()
         try:
             nat = NATIDPKT()
@@ -311,6 +346,15 @@ class VirtualConnector:
             self.lock.release()
 
     def rdpModeConnect(self,cert_info_list):
+        '''
+        telnet 와 DBSAFER 서비스 간 연결 (rdp Mode)
+
+        @param
+            cert_info_list - 보안 계정 관련 정보
+
+        @return
+            client socket
+        '''
         self.lock.acquire()
         try:
             nat =NATIDPKT()
@@ -330,6 +374,10 @@ class VirtualConnector:
             self.lock.release()
 
 class VirtualServer:
+    '''
+    proxy 전용 가상으로 연결
+    Server 전용
+    '''
     def __init__(self,service_port,dbsafer_ip,wta_info = [],wta_proxy_info=[]):
         self.dbsafer_ip = dbsafer_ip
         self.wta_info = wta_info
@@ -340,6 +388,12 @@ class VirtualServer:
         self.serversocket.listen(10000)
 
     def dbmsModeServer(self):
+        '''
+        dbms 가상 Server 와 DBSAFER 서비스 간 연결
+
+        @return
+            Server socket
+        '''
         try:
             (dbms_sock, address) = self.serversocket.accept()
 
@@ -349,6 +403,12 @@ class VirtualServer:
             print(e)
 
     def rdpModeServer(self):
+        '''
+        Telnet 가상 Server 와 DBSAFER 서비스 간 연결 (rdp Mode)
+
+        @return
+            Server socket, wta_proxy_server socket, wta_server_manager socket
+        '''
         try:
             wta_info_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             wta_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

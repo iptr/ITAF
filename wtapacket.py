@@ -2,6 +2,9 @@ import time
 import hashxor
 
 class WtaPacketMaker:
+    '''
+    This class is a class related to the wta_server_manager packet, and includes functions to execute packet rules, encryption, and decryption.
+    '''
     def __init__(self):
         self.token = bytes.fromhex("0a")
         self.eq_chr = b"="
@@ -18,6 +21,13 @@ class WtaPacketMaker:
     def makePacket(self,client_ip,service_ip,service_port,wta_proxy_port,client_port):
         '''
         wta_server_manager 패킷 생성
+
+        @param
+            client_ip - 클라이언트 아이피
+            service_ip - 서비스 아이피
+            service_port - 서비스 포트
+            wta_proxy_port - DBSAFER GW 에서 wta_proxy가 사용하는 포트
+            client_port - 클라이언트 포트
         '''
         current_time = str(int(time.time()))
 
@@ -45,6 +55,9 @@ class WtaPacketMaker:
     def encryptPacket(self):
         '''
         wta_server_manager 패킷 암호화
+
+        @return
+            암호문
         '''
         packet = b''
 
@@ -65,6 +78,12 @@ class WtaPacketMaker:
     def decryptPacket(self,text):
         '''
         wta_server_manager 패킷 복호화
+
+        @param
+            text - 암호문
+
+        @return
+            평문
         '''
         decry = hashxor.HashXor(text)
 
@@ -76,6 +95,12 @@ class WtaPacketMaker:
         '''
         socket 을 입력 받아 wta 에서 받는 정보를 반환
         반환된 정보는 wta_proxy_server패킷을 만들어 보낼때 사용
+
+        @param
+            wta_info_socket - DBSAFER Log 에 올라와 있는 wta_server_manager와 통신하는 소켓
+
+        @return
+            wta에서 보낸 정보들을 mapping 한 result
         '''
         wta_info = {}
         wta_recv = wta_info_socket.recv(1000)
